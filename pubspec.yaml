@@ -19,6 +19,7 @@ dependencies:
 
   # flash native
   flutter_native_splash: ^2.4.0
+  flutter_launcher_icons: ^0.13.1
   
   # Google Drive & Auth
   google_sign_in: ^6.2.1
@@ -56,3 +57,8 @@ flutter_native_splash:
   image: assets/logo.png
   android: true
   ios: true
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon.png"
