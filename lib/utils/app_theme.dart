@@ -80,7 +80,7 @@ class AppTheme {
 String formatCurrency(double amount, {String currency = 'IDR'}) {
   final formatter = NumberFormat.currency(
     locale: 'id_ID',
-    symbol: currency == 'IDR' ? 'Rp ' : '\$currency ',
+    symbol: currency == 'IDR' ? 'Rp ' : '$currency ',
     decimalDigits: currency == 'IDR' ? 0 : 2,
   );
   return formatter.format(amount);
@@ -92,9 +92,15 @@ String formatDateTime(DateTime date) =>
 String formatMonth(DateTime date) => DateFormat('MMMM yyyy', 'id_ID').format(date);
 String formatShortDate(DateTime date) => DateFormat('dd MMM', 'id_ID').format(date);
 
+// ── FIX: colorFromHex tanpa backslash escape yang salah ──
 Color colorFromHex(String hex) {
-  final h = hex.replaceAll('#', '');
-  return Color(int.parse('FF\$h', radix: 16));
+  try {
+    final h = hex.replaceAll('#', '').trim();
+    if (h.length != 6) return Colors.blue;
+    return Color(int.parse('FF$h', radix: 16));
+  } catch (_) {
+    return Colors.blue;
+  }
 }
 
 IconData categoryIcon(String icon) {

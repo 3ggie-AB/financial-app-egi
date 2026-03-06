@@ -1,6 +1,8 @@
 import 'package:sqflite/sqflite.dart' hide Transaction;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 
 class DatabaseService {
@@ -13,12 +15,30 @@ class DatabaseService {
   String get newId => _uuid.v4();
 
   Future<void> initialize() async {
-    final dbPath = await getDatabasesPath();
-    _db = await openDatabase(
-      join(dbPath, 'finance.db'),
-      version: 1,
-      onCreate: _onCreate,
-    );
+    // Desktop (Windows/Linux/macOS) gunakan sqflite_common_ffi
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS)) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+
+    // Web: gunakan in-memory database (data tidak persist setelah reload)
+    if (kIsWeb) {
+      databaseFactory = databaseFactoryFfi;
+      _db = await databaseFactory.openDatabase(
+        inMemoryDatabasePath,
+        options: OpenDatabaseOptions(version: 1, onCreate: _onCreate),
+      );
+    } else {
+      final dbPath = await getDatabasesPath();
+      _db = await openDatabase(
+        join(dbPath, 'finance.db'),
+        version: 1,
+        onCreate: _onCreate,
+      );
+    }
+
     await _seedDefaultData();
   }
 
