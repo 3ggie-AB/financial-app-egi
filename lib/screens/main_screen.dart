@@ -69,7 +69,10 @@ class _MainScreenState extends State<MainScreen> {
                         height: 36,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [AppTheme.primaryColor, AppTheme.primaryColor.withOpacity(0.6)],
+                            colors: [
+                              AppTheme.primaryColor,
+                              AppTheme.primaryColor.withOpacity(0.6)
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -123,7 +126,8 @@ class _MainScreenState extends State<MainScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const AddTransactionScreen()),
                       ),
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Tambah Transaksi'),
@@ -181,11 +185,15 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,
+        height: 64,
+        padding: EdgeInsets.zero,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             _mobileNavItem(0, Icons.dashboard_rounded, 'Dashboard'),
             _mobileNavItem(1, Icons.receipt_long_rounded, 'Transaksi'),
-            const SizedBox(width: 64),
+            const Expanded(child: SizedBox()),
+            const Expanded(child: SizedBox()),
             _mobileNavItem(2, Icons.account_balance_wallet_rounded, 'Rekening'),
             _mobileNavItem(3, Icons.more_horiz_rounded, 'Lainnya'),
           ],
@@ -202,9 +210,10 @@ class _MainScreenState extends State<MainScreen> {
         onTap: () => setState(() => _currentIndex = index),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon,
                   color: selected ? scheme.primary : scheme.onSurfaceVariant,
@@ -274,9 +283,8 @@ class _SidebarItem extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: selected
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.5),
+                    color:
+                        selected ? Colors.white : Colors.white.withOpacity(0.5),
                     fontSize: 14,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                   ),
