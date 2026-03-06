@@ -1,0 +1,267 @@
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+import 'package:uuid/uuid.dart';
+import '../models/models.dart';
+
+class DatabaseService {
+  static final DatabaseService instance = DatabaseService._internal();
+  DatabaseService._internal();
+
+  Database? _db;
+  final _uuid = const Uuid();
+
+  String get newId => _uuid.v4();
+
+  Future<void> initialize() async {
+    final dbPath = await getDatabasesPath();
+    _db = await openDatabase(
+      join(dbPath, 'finance.db'),
+      version: 1,
+      onCreate: _onCreate,
+    );
+    await _seedDefaultData();
+  }
+
+  Database get db => _db!;
+
+  Future<void> _onCreate(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE accounts (
+        id TEXT PRIMARY KEY, name TEXT, type TEXT, balance REAL,
+        currency TEXT, color TEXT, icon TEXT, isActive INTEGER, createdAt TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE categories (
+        id TEXT PRIMARY KEY, name TEXT, type TEXT,
+        color TEXT, icon TEXT, parentId TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE tags (
+        id TEXT PRIMARY KEY, name TEXT, color TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE transactions (
+        id TEXT PRIMARY KEY, type TEXT, amount REAL, accountId TEXT,
+        toAccountId TEXT, categoryId TEXT, tagIds TEXT, note TEXT,
+        date TEXT, recurring TEXT, attachmentPath TEXT, createdAt TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE budgets (
+        id TEXT PRIMARY KEY, categoryId TEXT, limitAmount REAL,
+        spentAmount REAL, startDate TEXT, endDate TEXT, isActive INTEGER
+      )
+    ''');
+  }
+
+  Future<void> _seedDefaultData() async {
+    final accounts = await getAccounts();
+    if (accounts.isNotEmpty) return;
+
+    // Default Accounts
+    final defaultAccounts = [
+      Account(id: newId, name: 'Dompet', type: 'cash', balance: 500000, color: '#4CAF50', icon: 'wallet', createdAt: DateTime.now()),
+      Account(id: newId, name: 'BCA', type: 'bank', balance: 5000000, color: '#2196F3', icon: 'bank', createdAt: DateTime.now()),
+      Account(id: newId, name: 'GoPay', type: 'ewallet', balance: 200000, color: '#00BCD4', icon: 'phone', createdAt: DateTime.now()),
+    ];
+    for (final a in defaultAccounts) await insertAccount(a);
+
+    // Default Categories
+    final expenseCategories = [
+      {'name': 'Makanan & Minuman', 'color': '#F44336', 'icon': 'food'},
+      {'name': 'Transportasi', 'color': '#FF9800', 'icon': 'car'},
+      {'name': 'Belanja', 'color': '#E91E63', 'icon': 'shopping'},
+      {'name': 'Tagihan & Utilitas', 'color': '#9C27B0', 'icon': 'bill'},
+      {'name': 'Hiburan', 'color': '#3F51B5', 'icon': 'entertainment'},
+      {'name': 'Kesehatan', 'color': '#009688', 'icon': 'health'},
+      {'name': 'Pendidikan', 'color': '#607D8B', 'icon': 'education'},
+      {'name': 'Lainnya', 'color': '#795548', 'icon': 'other'},
+    ];
+    for (final c in expenseCategories) {
+      await insertCategory(Category(
+        id: newId, name: c['name']!, type: TransactionType.expense,
+        color: c['color']!, icon: c['icon']!,
+      ));
+    }
+
+    final incomeCategories = [
+      {'name': 'Gaji', 'color': '#4CAF50', 'icon': 'salary'},
+      {'name': 'Freelance', 'color': '#8BC34A', 'icon': 'freelance'},
+      {'name': 'Investasi', 'color': '#CDDC39', 'icon': 'investment'},
+      {'name': 'Bonus', 'color': '#FFEB3B', 'icon': 'bonus'},
+      {'name': 'Lainnya', 'color': '#795548', 'icon': 'other'},
+    ];
+    for (final c in incomeCategories) {
+      await insertCategory(Category(
+        id: newId, name: c['name']!, type: TransactionType.income,
+        color: c['color']!, icon: c['icon']!,
+      ));
+    }
+
+    // Default Tags
+    final tags = ['Penting', 'Bulanan', 'Darurat', 'Tabungan', 'Investasi'];
+    final tagColors = ['#F44336', '#2196F3', '#FF9800', '#4CAF50', '#9C27B0'];
+    for (int i = 0; i < tags.length; i++) {
+      await insertTag(Tag(id: newId, name: tags[i], color: tagColors[i]));
+    }
+  }
+
+  // ─── ACCOUNTS ────────────────────────────────────────────────
+  Future<List<Account>> getAccounts() async {
+    final maps = await db.query('accounts', orderBy: 'createdAt ASC');
+    return maps.map(Account.fromMap).toList();
+  }
+
+  Future<void> insertAccount(Account a) async =>
+      await db.insert('accounts', a.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+
+  Future<void> updateAccount(Account a) async =>
+      await db.update('accounts', a.toMap(), where: 'id = ?', whereArgs: [a.id]);
+
+  Future<void> deleteAccount(String id) async =>
+      await db.delete('accounts', where: 'id = ?', whereArgs: [id]);
+
+  // ─── CATEGORIES ──────────────────────────────────────────────
+  Future<List<Category>> getCategories() async {
+    final maps = await db.query('categories');
+    return maps.map(Category.fromMap).toList();
+  }
+
+  Future<void> insertCategory(Category c) async =>
+      await db.insert('categories', c.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+
+  Future<void> updateCategory(Category c) async =>
+      await db.update('categories', c.toMap(), where: 'id = ?', whereArgs: [c.id]);
+
+  Future<void> deleteCategory(String id) async =>
+      await db.delete('categories', where: 'id = ?', whereArgs: [id]);
+
+  // ─── TAGS ─────────────────────────────────────────────────────
+  Future<List<Tag>> getTags() async {
+    final maps = await db.query('tags');
+    return maps.map(Tag.fromMap).toList();
+  }
+
+  Future<void> insertTag(Tag t) async =>
+      await db.insert('tags', t.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+
+  Future<void> updateTag(Tag t) async =>
+      await db.update('tags', t.toMap(), where: 'id = ?', whereArgs: [t.id]);
+
+  Future<void> deleteTag(String id) async =>
+      await db.delete('tags', where: 'id = ?', whereArgs: [id]);
+
+  // ─── TRANSACTIONS ─────────────────────────────────────────────
+  Future<List<Transaction>> getTransactions({
+    DateTime? from,
+    DateTime? to,
+    String? accountId,
+    String? categoryId,
+    TransactionType? type,
+  }) async {
+    String where = '1=1';
+    List<dynamic> args = [];
+    if (from != null) { where += ' AND date >= ?'; args.add(from.toIso8601String()); }
+    if (to != null) { where += ' AND date <= ?'; args.add(to.toIso8601String()); }
+    if (accountId != null) { where += ' AND (accountId = ? OR toAccountId = ?)'; args.addAll([accountId, accountId]); }
+    if (categoryId != null) { where += ' AND categoryId = ?'; args.add(categoryId); }
+    if (type != null) { where += ' AND type = ?'; args.add(type.name); }
+
+    final maps = await db.query('transactions',
+        where: where, whereArgs: args, orderBy: 'date DESC');
+    return maps.map(Transaction.fromMap).toList();
+  }
+
+  Future<void> insertTransaction(Transaction t) async {
+    await db.insert('transactions', t.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await _updateAccountBalance(t, isDelete: false);
+  }
+
+  Future<void> updateTransaction(Transaction oldT, Transaction newT) async {
+    await _updateAccountBalance(oldT, isDelete: true);
+    await db.update('transactions', newT.toMap(), where: 'id = ?', whereArgs: [newT.id]);
+    await _updateAccountBalance(newT, isDelete: false);
+  }
+
+  Future<void> deleteTransaction(Transaction t) async {
+    await db.delete('transactions', where: 'id = ?', whereArgs: [t.id]);
+    await _updateAccountBalance(t, isDelete: true);
+  }
+
+  Future<void> _updateAccountBalance(Transaction t, {required bool isDelete}) async {
+    final multiplier = isDelete ? -1 : 1;
+    final accounts = await getAccounts();
+    final accountMap = {for (var a in accounts) a.id: a};
+
+    if (t.type == TransactionType.income) {
+      final acc = accountMap[t.accountId];
+      if (acc != null) {
+        await updateAccount(acc.copyWith(balance: acc.balance + (t.amount * multiplier)));
+      }
+    } else if (t.type == TransactionType.expense) {
+      final acc = accountMap[t.accountId];
+      if (acc != null) {
+        await updateAccount(acc.copyWith(balance: acc.balance - (t.amount * multiplier)));
+      }
+    } else if (t.type == TransactionType.transfer) {
+      final from = accountMap[t.accountId];
+      final to = accountMap[t.toAccountId ?? ''];
+      if (from != null) await updateAccount(from.copyWith(balance: from.balance - (t.amount * multiplier)));
+      if (to != null) await updateAccount(to.copyWith(balance: to.balance + (t.amount * multiplier)));
+    }
+  }
+
+  // ─── BUDGETS ──────────────────────────────────────────────────
+  Future<List<Budget>> getBudgets() async {
+    final maps = await db.query('budgets');
+    return maps.map(Budget.fromMap).toList();
+  }
+
+  Future<void> insertBudget(Budget b) async =>
+      await db.insert('budgets', b.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+
+  Future<void> updateBudget(Budget b) async =>
+      await db.update('budgets', b.toMap(), where: 'id = ?', whereArgs: [b.id]);
+
+  Future<void> deleteBudget(String id) async =>
+      await db.delete('budgets', where: 'id = ?', whereArgs: [id]);
+
+  // ─── EXPORT/IMPORT ────────────────────────────────────────────
+  Future<Map<String, dynamic>> exportAll() async {
+    return {
+      'exportedAt': DateTime.now().toIso8601String(),
+      'version': 1,
+      'accounts': (await getAccounts()).map((e) => e.toMap()).toList(),
+      'categories': (await getCategories()).map((e) => e.toMap()).toList(),
+      'tags': (await getTags()).map((e) => e.toMap()).toList(),
+      'transactions': (await getTransactions()).map((e) => e.toMap()).toList(),
+      'budgets': (await getBudgets()).map((e) => e.toMap()).toList(),
+    };
+  }
+
+  Future<void> importAll(Map<String, dynamic> data) async {
+    await db.transaction((txn) async {
+      for (final table in ['accounts', 'categories', 'tags', 'transactions', 'budgets']) {
+        await txn.delete(table);
+      }
+      for (final map in (data['accounts'] as List? ?? [])) {
+        await txn.insert('accounts', Map<String, dynamic>.from(map));
+      }
+      for (final map in (data['categories'] as List? ?? [])) {
+        await txn.insert('categories', Map<String, dynamic>.from(map));
+      }
+      for (final map in (data['tags'] as List? ?? [])) {
+        await txn.insert('tags', Map<String, dynamic>.from(map));
+      }
+      for (final map in (data['transactions'] as List? ?? [])) {
+        await txn.insert('transactions', Map<String, dynamic>.from(map));
+      }
+      for (final map in (data['budgets'] as List? ?? [])) {
+        await txn.insert('budgets', Map<String, dynamic>.from(map));
+      }
+    });
+  }
+}
