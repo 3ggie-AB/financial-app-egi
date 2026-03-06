@@ -176,24 +176,40 @@ class _MainScreenState extends State<MainScreen> {
           context,
           MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
         ),
+        elevation: 2,
+        highlightElevation: 4,
         backgroundColor: scheme.primary,
         foregroundColor: Colors.white,
         shape: const CircleBorder(),
-        child: const Icon(Icons.add_rounded, size: 28),
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [
+                scheme.primary,
+                scheme.primary.withOpacity(0.75),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: const Icon(Icons.add_rounded, size: 28),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        height: 64,
+        notchMargin: 6, // ← dari 8 jadi 6
+        height: 72, // ← dari 64 jadi 72
         padding: EdgeInsets.zero,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             _mobileNavItem(0, Icons.dashboard_rounded, 'Dashboard'),
             _mobileNavItem(1, Icons.receipt_long_rounded, 'Transaksi'),
-            const Expanded(child: SizedBox()),
-            const Expanded(child: SizedBox()),
+            const SizedBox(width: 50),
             _mobileNavItem(2, Icons.account_balance_wallet_rounded, 'Rekening'),
             _mobileNavItem(3, Icons.more_horiz_rounded, 'Lainnya'),
           ],
@@ -210,7 +226,7 @@ class _MainScreenState extends State<MainScreen> {
         onTap: () => setState(() => _currentIndex = index),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 0),
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
