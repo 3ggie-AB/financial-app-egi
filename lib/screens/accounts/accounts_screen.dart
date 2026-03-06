@@ -28,6 +28,7 @@ class AccountsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Rekening')),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'accounts_fab',
         onPressed: () => _showAccountDialog(context),
         icon: const Icon(Icons.add_rounded),
         label: const Text('Tambah'),

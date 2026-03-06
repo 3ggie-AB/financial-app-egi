@@ -172,6 +172,7 @@ class _MainScreenState extends State<MainScreen> {
         children: _screens,
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'main_fab',
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AddTransactionScreen()),

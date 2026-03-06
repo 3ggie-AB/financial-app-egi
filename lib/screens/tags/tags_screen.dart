@@ -16,6 +16,7 @@ class TagsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Tag')),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'categories_fab',
         onPressed: () => _showTagDialog(context),
         child: const Icon(Icons.add_rounded),
       ),

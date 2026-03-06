@@ -17,6 +17,7 @@ class BudgetsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Budget')),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'categories_fab',
         onPressed: () => _showBudgetDialog(context),
         child: const Icon(Icons.add_rounded),
       ),

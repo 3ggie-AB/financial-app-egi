@@ -6,12 +6,14 @@ import 'screens/main_screen.dart';
 import 'services/database_service.dart';
 import 'utils/app_theme.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'services/currency_service.dart';
 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id', null);
   await DatabaseService.instance.initialize();
+  await CurrencyService.instance.loadSavedCurrency();
   runApp(const FinanceApp());
 }
 
