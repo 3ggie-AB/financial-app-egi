@@ -6,31 +6,25 @@ class FinanceProvider extends ChangeNotifier {
   final _db = DatabaseService.instance;
 
   List<Account> _accounts = [];
-  List<Category> _categories = [];
+  List<AppCategory> _categories = [];
   List<Tag> _tags = [];
-  List<Transaction> _transactions = [];
+  List<AppTransaction> _transactions = [];
   List<Budget> _budgets = [];
-
   bool _isLoading = false;
 
   List<Account> get accounts => _accounts.where((a) => a.isActive).toList();
   List<Account> get allAccounts => _accounts;
-  List<Category> get categories => _categories;
-  List<Category> get expenseCategories =>
+  List<AppCategory> get categories => _categories;
+  List<AppCategory> get expenseCategories =>
       _categories.where((c) => c.type == TransactionType.expense).toList();
-  List<Category> get incomeCategories =>
+  List<AppCategory> get incomeCategories =>
       _categories.where((c) => c.type == TransactionType.income).toList();
   List<Tag> get tags => _tags;
-  List<Transaction> get transactions => _transactions;
+  List<AppTransaction> get transactions => _transactions;
   List<Budget> get budgets => _budgets;
   bool get isLoading => _isLoading;
 
-  // ─── TOTALS ──────────────────────────────────────────────────
   double get totalBalance => _accounts
-      .where((a) => a.isActive && a.type != 'credit')
-      .fold(0, (sum, a) => sum + a.balance);
-
-  double get totalAssets => _accounts
       .where((a) => a.isActive && a.type != 'credit')
       .fold(0, (sum, a) => sum + a.balance);
 
@@ -38,8 +32,7 @@ class FinanceProvider extends ChangeNotifier {
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
     return _transactions
-        .where((t) =>
-            t.type == TransactionType.income &&
+        .where((t) => t.type == TransactionType.income &&
             t.date.isAfter(start.subtract(const Duration(seconds: 1))) &&
             t.date.isBefore(end.add(const Duration(seconds: 1))))
         .fold(0, (sum, t) => sum + t.amount);
@@ -49,14 +42,13 @@ class FinanceProvider extends ChangeNotifier {
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
     return _transactions
-        .where((t) =>
-            t.type == TransactionType.expense &&
+        .where((t) => t.type == TransactionType.expense &&
             t.date.isAfter(start.subtract(const Duration(seconds: 1))) &&
             t.date.isBefore(end.add(const Duration(seconds: 1))))
         .fold(0, (sum, t) => sum + t.amount);
   }
 
-  List<Transaction> transactionsForMonth(DateTime month) {
+  List<AppTransaction> transactionsForMonth(DateTime month) {
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
     return _transactions
@@ -76,7 +68,6 @@ class FinanceProvider extends ChangeNotifier {
     return result;
   }
 
-  // ─── LOAD ─────────────────────────────────────────────────────
   Future<void> loadAll() async {
     _isLoading = true;
     notifyListeners();
@@ -90,7 +81,6 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── ACCOUNT CRUD ────────────────────────────────────────────
   Future<void> addAccount(Account a) async {
     await _db.insertAccount(a);
     _accounts = await _db.getAccounts();
@@ -109,14 +99,13 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── CATEGORY CRUD ───────────────────────────────────────────
-  Future<void> addCategory(Category c) async {
+  Future<void> addCategory(AppCategory c) async {
     await _db.insertCategory(c);
     _categories = await _db.getCategories();
     notifyListeners();
   }
 
-  Future<void> updateCategory(Category c) async {
+  Future<void> updateCategory(AppCategory c) async {
     await _db.updateCategory(c);
     _categories = await _db.getCategories();
     notifyListeners();
@@ -128,7 +117,6 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── TAG CRUD ─────────────────────────────────────────────────
   Future<void> addTag(Tag t) async {
     await _db.insertTag(t);
     _tags = await _db.getTags();
@@ -147,8 +135,7 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── TRANSACTION CRUD ────────────────────────────────────────
-  Future<void> addTransaction(Transaction t) async {
+  Future<void> addTransaction(AppTransaction t) async {
     await _db.insertTransaction(t);
     _transactions = await _db.getTransactions();
     _accounts = await _db.getAccounts();
@@ -156,7 +143,7 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateTransaction(Transaction oldT, Transaction newT) async {
+  Future<void> updateTransaction(AppTransaction oldT, AppTransaction newT) async {
     await _db.updateTransaction(oldT, newT);
     _transactions = await _db.getTransactions();
     _accounts = await _db.getAccounts();
@@ -164,7 +151,7 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> deleteTransaction(Transaction t) async {
+  Future<void> deleteTransaction(AppTransaction t) async {
     await _db.deleteTransaction(t);
     _transactions = await _db.getTransactions();
     _accounts = await _db.getAccounts();
@@ -172,7 +159,6 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── BUDGET CRUD ──────────────────────────────────────────────
   Future<void> addBudget(Budget b) async {
     await _db.insertBudget(b);
     _budgets = await _db.getBudgets();
@@ -187,44 +173,33 @@ class FinanceProvider extends ChangeNotifier {
   }
 
   Future<void> _recalcBudgets() async {
-    final now = DateTime.now();
     for (int i = 0; i < _budgets.length; i++) {
       final b = _budgets[i];
       if (!b.isActive) continue;
       final spent = _transactions
-          .where((t) =>
-              t.type == TransactionType.expense &&
+          .where((t) => t.type == TransactionType.expense &&
               t.categoryId == b.categoryId &&
               t.date.isAfter(b.startDate) &&
               t.date.isBefore(b.endDate))
           .fold(0.0, (sum, t) => sum + t.amount);
       final updated = Budget(
-        id: b.id,
-        categoryId: b.categoryId,
-        limitAmount: b.limitAmount,
-        spentAmount: spent,
-        startDate: b.startDate,
-        endDate: b.endDate,
-        isActive: b.isActive,
+        id: b.id, categoryId: b.categoryId, limitAmount: b.limitAmount,
+        spentAmount: spent, startDate: b.startDate, endDate: b.endDate, isActive: b.isActive,
       );
       _budgets[i] = updated;
       await _db.updateBudget(updated);
     }
   }
 
-  // ─── HELPERS ──────────────────────────────────────────────────
   Account? accountById(String id) {
-    try { return _accounts.firstWhere((a) => a.id == id); }
-    catch (_) { return null; }
+    try { return _accounts.firstWhere((a) => a.id == id); } catch (_) { return null; }
   }
 
-  Category? categoryById(String id) {
-    try { return _categories.firstWhere((c) => c.id == id); }
-    catch (_) { return null; }
+  AppCategory? categoryById(String id) {
+    try { return _categories.firstWhere((c) => c.id == id); } catch (_) { return null; }
   }
 
   Tag? tagById(String id) {
-    try { return _tags.firstWhere((t) => t.id == id); }
-    catch (_) { return null; }
+    try { return _tags.firstWhere((t) => t.id == id); } catch (_) { return null; }
   }
 }

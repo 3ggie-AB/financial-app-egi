@@ -10,7 +10,7 @@ String _formatCurrency(double amount) =>
     NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(amount);
 
 class TransactionTile extends StatelessWidget {
-  final Transaction transaction;
+  final AppTransaction transaction;
   final bool showDate;
 
   const TransactionTile({

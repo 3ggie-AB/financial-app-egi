@@ -1,4 +1,4 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:path/path.dart';
 import 'package:uuid/uuid.dart';
 import '../models/models.dart';
@@ -61,7 +61,6 @@ class DatabaseService {
     final accounts = await getAccounts();
     if (accounts.isNotEmpty) return;
 
-    // Default Accounts
     final defaultAccounts = [
       Account(id: newId, name: 'Dompet', type: 'cash', balance: 500000, color: '#4CAF50', icon: 'wallet', createdAt: DateTime.now()),
       Account(id: newId, name: 'BCA', type: 'bank', balance: 5000000, color: '#2196F3', icon: 'bank', createdAt: DateTime.now()),
@@ -69,7 +68,6 @@ class DatabaseService {
     ];
     for (final a in defaultAccounts) await insertAccount(a);
 
-    // Default Categories
     final expenseCategories = [
       {'name': 'Makanan & Minuman', 'color': '#F44336', 'icon': 'food'},
       {'name': 'Transportasi', 'color': '#FF9800', 'icon': 'car'},
@@ -81,7 +79,7 @@ class DatabaseService {
       {'name': 'Lainnya', 'color': '#795548', 'icon': 'other'},
     ];
     for (final c in expenseCategories) {
-      await insertCategory(Category(
+      await insertCategory(AppCategory(
         id: newId, name: c['name']!, type: TransactionType.expense,
         color: c['color']!, icon: c['icon']!,
       ));
@@ -95,13 +93,12 @@ class DatabaseService {
       {'name': 'Lainnya', 'color': '#795548', 'icon': 'other'},
     ];
     for (final c in incomeCategories) {
-      await insertCategory(Category(
+      await insertCategory(AppCategory(
         id: newId, name: c['name']!, type: TransactionType.income,
         color: c['color']!, icon: c['icon']!,
       ));
     }
 
-    // Default Tags
     final tags = ['Penting', 'Bulanan', 'Darurat', 'Tabungan', 'Investasi'];
     final tagColors = ['#F44336', '#2196F3', '#FF9800', '#4CAF50', '#9C27B0'];
     for (int i = 0; i < tags.length; i++) {
@@ -125,15 +122,15 @@ class DatabaseService {
       await db.delete('accounts', where: 'id = ?', whereArgs: [id]);
 
   // ─── CATEGORIES ──────────────────────────────────────────────
-  Future<List<Category>> getCategories() async {
+  Future<List<AppCategory>> getCategories() async {
     final maps = await db.query('categories');
-    return maps.map(Category.fromMap).toList();
+    return maps.map(AppCategory.fromMap).toList();
   }
 
-  Future<void> insertCategory(Category c) async =>
+  Future<void> insertCategory(AppCategory c) async =>
       await db.insert('categories', c.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
 
-  Future<void> updateCategory(Category c) async =>
+  Future<void> updateCategory(AppCategory c) async =>
       await db.update('categories', c.toMap(), where: 'id = ?', whereArgs: [c.id]);
 
   Future<void> deleteCategory(String id) async =>
@@ -155,12 +152,9 @@ class DatabaseService {
       await db.delete('tags', where: 'id = ?', whereArgs: [id]);
 
   // ─── TRANSACTIONS ─────────────────────────────────────────────
-  Future<List<Transaction>> getTransactions({
-    DateTime? from,
-    DateTime? to,
-    String? accountId,
-    String? categoryId,
-    TransactionType? type,
+  Future<List<AppTransaction>> getTransactions({
+    DateTime? from, DateTime? to,
+    String? accountId, String? categoryId, TransactionType? type,
   }) async {
     String where = '1=1';
     List<dynamic> args = [];
@@ -170,42 +164,37 @@ class DatabaseService {
     if (categoryId != null) { where += ' AND categoryId = ?'; args.add(categoryId); }
     if (type != null) { where += ' AND type = ?'; args.add(type.name); }
 
-    final maps = await db.query('transactions',
-        where: where, whereArgs: args, orderBy: 'date DESC');
-    return maps.map(Transaction.fromMap).toList();
+    final maps = await db.query('transactions', where: where, whereArgs: args, orderBy: 'date DESC');
+    return maps.map(AppTransaction.fromMap).toList();
   }
 
-  Future<void> insertTransaction(Transaction t) async {
+  Future<void> insertTransaction(AppTransaction t) async {
     await db.insert('transactions', t.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
     await _updateAccountBalance(t, isDelete: false);
   }
 
-  Future<void> updateTransaction(Transaction oldT, Transaction newT) async {
+  Future<void> updateTransaction(AppTransaction oldT, AppTransaction newT) async {
     await _updateAccountBalance(oldT, isDelete: true);
     await db.update('transactions', newT.toMap(), where: 'id = ?', whereArgs: [newT.id]);
     await _updateAccountBalance(newT, isDelete: false);
   }
 
-  Future<void> deleteTransaction(Transaction t) async {
+  Future<void> deleteTransaction(AppTransaction t) async {
     await db.delete('transactions', where: 'id = ?', whereArgs: [t.id]);
     await _updateAccountBalance(t, isDelete: true);
   }
 
-  Future<void> _updateAccountBalance(Transaction t, {required bool isDelete}) async {
+  Future<void> _updateAccountBalance(AppTransaction t, {required bool isDelete}) async {
     final multiplier = isDelete ? -1 : 1;
     final accounts = await getAccounts();
     final accountMap = {for (var a in accounts) a.id: a};
 
     if (t.type == TransactionType.income) {
       final acc = accountMap[t.accountId];
-      if (acc != null) {
-        await updateAccount(acc.copyWith(balance: acc.balance + (t.amount * multiplier)));
-      }
+      if (acc != null) await updateAccount(acc.copyWith(balance: acc.balance + (t.amount * multiplier)));
     } else if (t.type == TransactionType.expense) {
       final acc = accountMap[t.accountId];
-      if (acc != null) {
-        await updateAccount(acc.copyWith(balance: acc.balance - (t.amount * multiplier)));
-      }
+      if (acc != null) await updateAccount(acc.copyWith(balance: acc.balance - (t.amount * multiplier)));
     } else if (t.type == TransactionType.transfer) {
       final from = accountMap[t.accountId];
       final to = accountMap[t.toAccountId ?? ''];

@@ -131,7 +131,7 @@ class _BudgetFormSheetState extends State<BudgetFormSheet> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: fp.expenseCategories.map((c) => ChoiceChip(
+            children: fp.expenseCategories.map<Widget>((c) => ChoiceChip(
               label: Text(c.name),
               selected: _categoryId == c.id,
               onSelected: (v) => setState(() => _categoryId = v ? c.id : null),

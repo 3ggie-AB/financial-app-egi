@@ -39,7 +39,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     }
 
     // Group by date
-    final Map<String, List<Transaction>> grouped = {};
+    final Map<String, List<AppTransaction>> grouped = {};
     for (final t in txns) {
       final key = DateFormat('dd MMMM yyyy', 'id_ID').format(t.date);
       grouped.putIfAbsent(key, () => []).add(t);

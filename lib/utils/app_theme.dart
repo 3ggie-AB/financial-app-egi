@@ -1,5 +1,6 @@
 // utils/app_theme.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class AppTheme {
   static const primaryColor = Color(0xFF6C63FF);
@@ -13,7 +14,7 @@ class AppTheme {
           seedColor: primaryColor,
           brightness: Brightness.light,
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           color: Colors.white,
@@ -47,7 +48,7 @@ class AppTheme {
           seedColor: primaryColor,
           brightness: Brightness.dark,
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           color: const Color(0xFF1E1E2E),
@@ -76,13 +77,10 @@ class AppTheme {
       );
 }
 
-// utils/formatters.dart
-import 'package:intl/intl.dart';
-
 String formatCurrency(double amount, {String currency = 'IDR'}) {
   final formatter = NumberFormat.currency(
     locale: 'id_ID',
-    symbol: currency == 'IDR' ? 'Rp ' : '$currency ',
+    symbol: currency == 'IDR' ? 'Rp ' : '\$currency ',
     decimalDigits: currency == 'IDR' ? 0 : 2,
   );
   return formatter.format(amount);
@@ -96,7 +94,7 @@ String formatShortDate(DateTime date) => DateFormat('dd MMM', 'id_ID').format(da
 
 Color colorFromHex(String hex) {
   final h = hex.replaceAll('#', '');
-  return Color(int.parse('FF$h', radix: 16));
+  return Color(int.parse('FF\$h', radix: 16));
 }
 
 IconData categoryIcon(String icon) {

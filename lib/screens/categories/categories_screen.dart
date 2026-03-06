@@ -46,7 +46,7 @@ class _CategoriesScreenState extends State<CategoriesScreen>
     );
   }
 
-  Widget _catList(List<Category> cats) {
+  Widget _catList(List<AppCategory> cats) {
     if (cats.isEmpty) {
       return const Center(child: Text('Belum ada kategori'));
     }
@@ -92,7 +92,7 @@ class _CategoriesScreenState extends State<CategoriesScreen>
     catch (_) { return Colors.blue; }
   }
 
-  void _showCategoryDialog(BuildContext context, {Category? cat}) {
+  void _showCategoryDialog(BuildContext context, {AppCategory? cat}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -100,7 +100,7 @@ class _CategoriesScreenState extends State<CategoriesScreen>
     );
   }
 
-  Future<void> _delete(Category cat) async {
+  Future<void> _delete(AppCategory cat) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -119,7 +119,7 @@ class _CategoriesScreenState extends State<CategoriesScreen>
 }
 
 class CategoryFormSheet extends StatefulWidget {
-  final Category? category;
+  final AppCategory? category;
   const CategoryFormSheet({super.key, this.category});
 
   @override
@@ -187,7 +187,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _colors.map((c) {
+            children: _colors.map<Widget>((c) {
               final color = Color(int.parse('FF${c.replaceAll('#', '')}', radix: 16));
               return GestureDetector(
                 onTap: () => setState(() => _color = c),
@@ -228,7 +228,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
     if (_nameCtrl.text.isEmpty) return;
     final fp = context.read<FinanceProvider>();
     if (widget.category == null) {
-      await fp.addCategory(Category(
+      await fp.addCategory(AppCategory(
         id: DatabaseService.instance.newId,
         name: _nameCtrl.text,
         type: _type,

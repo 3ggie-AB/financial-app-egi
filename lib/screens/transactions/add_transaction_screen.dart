@@ -8,7 +8,7 @@ import '../../services/database_service.dart';
 import '../../utils/app_theme.dart';
 
 class AddTransactionScreen extends StatefulWidget {
-  final Transaction? transaction;
+  final AppTransaction? transaction;
   const AddTransactionScreen({super.key, this.transaction});
 
   @override
@@ -89,7 +89,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         ? 'transfer'
         : _categoryId!;
 
-    final newT = Transaction(
+    final newT = AppTransaction(
       id: _isEdit ? widget.transaction!.id : DatabaseService.instance.newId,
       type: _type,
       amount: amount,
@@ -215,7 +215,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             const SizedBox(height: 12),
           ],
 
-          // Category (not for transfer)
+          // AppCategory (not for transfer)
           if (_type != TransactionType.transfer) ...[
             _sectionLabel('Kategori'),
             _categorySelector(fp),
@@ -317,7 +317,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: cats.map((c) {
+      children: cats.map<Widget>((c) {
         final isSelected = _categoryId == c.id;
         return ChoiceChip(
           label: Text(c.name),

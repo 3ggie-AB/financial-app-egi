@@ -127,7 +127,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _balanceCard(balance, scheme),
                   const SizedBox(height: 20),
 
-                  // Expense by Category Pie Chart
+                  // Expense by AppCategory Pie Chart
                   if (expByCategory.isNotEmpty) ...[
                     Text('Pengeluaran per Kategori',
                         style: Theme.of(context)

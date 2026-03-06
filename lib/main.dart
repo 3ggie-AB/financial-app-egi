@@ -5,10 +5,12 @@ import 'providers/theme_provider.dart';
 import 'screens/main_screen.dart';
 import 'services/database_service.dart';
 import 'utils/app_theme.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await DatabaseService.instance.initialize();
+  await initializeDateFormatting('id', null);
   runApp(const FinanceApp());
 }
 
