@@ -1,8 +1,11 @@
+// screens/categories/categories_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/finance_provider.dart';
 import '../../services/database_service.dart';
+import '../../utils/app_theme.dart';
+import '../../widgets/color_picker_widget.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -19,6 +22,12 @@ class _CategoriesScreenState extends State<CategoriesScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -55,7 +64,7 @@ class _CategoriesScreenState extends State<CategoriesScreen>
       itemCount: cats.length,
       itemBuilder: (_, i) {
         final cat = cats[i];
-        final color = _hexColor(cat.color);
+        final color = colorFromHex(cat.color);
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
@@ -63,11 +72,21 @@ class _CategoriesScreenState extends State<CategoriesScreen>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(10)),
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Icon(Icons.category_rounded, color: color),
             ),
             title: Text(cat.name),
+            subtitle: Text(
+              cat.color.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                color: color,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -76,7 +95,8 @@ class _CategoriesScreenState extends State<CategoriesScreen>
                   onPressed: () => _showCategoryDialog(context, cat: cat),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                  icon: const Icon(Icons.delete_outline_rounded,
+                      size: 18, color: Colors.red),
                   onPressed: () => _delete(cat),
                 ),
               ],
@@ -87,15 +107,13 @@ class _CategoriesScreenState extends State<CategoriesScreen>
     );
   }
 
-  Color _hexColor(String hex) {
-    try { return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16)); }
-    catch (_) { return Colors.blue; }
-  }
-
   void _showCategoryDialog(BuildContext context, {AppCategory? cat}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => CategoryFormSheet(category: cat),
     );
   }
@@ -106,9 +124,14 @@ class _CategoriesScreenState extends State<CategoriesScreen>
       builder: (ctx) => AlertDialog(
         title: Text('Hapus "${cat.name}"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Hapus', style: TextStyle(color: Colors.red))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
@@ -118,6 +141,9 @@ class _CategoriesScreenState extends State<CategoriesScreen>
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CATEGORY FORM SHEET
+// ─────────────────────────────────────────────────────────────────────────────
 class CategoryFormSheet extends StatefulWidget {
   final AppCategory? category;
   const CategoryFormSheet({super.key, this.category});
@@ -131,10 +157,6 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
   TransactionType _type = TransactionType.expense;
   String _color = '#2196F3';
 
-  final _colors = ['#F44336', '#E91E63', '#9C27B0', '#3F51B5', '#2196F3',
-      '#00BCD4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39',
-      '#FFEB3B', '#FF9800', '#FF5722', '#795548', '#607D8B'];
-
   @override
   void initState() {
     super.initState();
@@ -146,80 +168,114 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
   }
 
   @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final color = colorFromHex(_color);
     return Padding(
       padding: EdgeInsets.only(
         left: 20, right: 20, top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(widget.category == null ? 'Tambah Kategori' : 'Edit Kategori',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _nameCtrl,
-            decoration: const InputDecoration(labelText: 'Nama Kategori'),
-          ),
-          const SizedBox(height: 12),
-          const Text('Jenis', style: TextStyle(fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              ChoiceChip(
-                label: const Text('Pengeluaran'),
-                selected: _type == TransactionType.expense,
-                onSelected: (v) { if (v) setState(() => _type = TransactionType.expense); },
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('Pemasukan'),
-                selected: _type == TransactionType.income,
-                onSelected: (v) { if (v) setState(() => _type = TransactionType.income); },
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Text('Warna', style: TextStyle(fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _colors.map<Widget>((c) {
-              final color = Color(int.parse('FF${c.replaceAll('#', '')}', radix: 16));
-              return GestureDetector(
-                onTap: () => setState(() => _color = c),
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    border: _color == c ? Border.all(color: Colors.black, width: 2) : null,
-                  ),
-                  child: _color == c ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header dengan preview
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  widget.category == null ? 'Tambah Kategori' : 'Edit Kategori',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _save,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text(widget.category == null ? 'Tambah' : 'Simpan',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                // Preview icon
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.category_rounded, color: color),
+                ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+
+            // Nama kategori
+            TextField(
+              controller: _nameCtrl,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Nama Kategori',
+                prefixIcon: Icon(Icons.category_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Jenis
+            const Text('Jenis', style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                ChoiceChip(
+                  label: const Text('Pengeluaran'),
+                  selected: _type == TransactionType.expense,
+                  selectedColor: Colors.red.withOpacity(0.2),
+                  onSelected: (v) {
+                    if (v) setState(() => _type = TransactionType.expense);
+                  },
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Pemasukan'),
+                  selected: _type == TransactionType.income,
+                  selectedColor: Colors.green.withOpacity(0.2),
+                  onSelected: (v) {
+                    if (v) setState(() => _type = TransactionType.income);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Warna custom
+            const Text('Warna', style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 10),
+            ColorPickerWidget(
+              selectedColor: _color,
+              onColorChanged: (c) => setState(() => _color = c),
+            ),
+            const SizedBox(height: 20),
+
+            // Tombol simpan
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  foregroundColor: color.computeLuminance() > 0.5
+                      ? Colors.black
+                      : Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(
+                  widget.category == null ? 'Tambah' : 'Simpan',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

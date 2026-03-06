@@ -1,8 +1,11 @@
+// screens/tags/tags_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/finance_provider.dart';
 import '../../services/database_service.dart';
+import '../../utils/app_theme.dart';
+import '../../widgets/color_picker_widget.dart';
 
 class TagsScreen extends StatelessWidget {
   const TagsScreen({super.key});
@@ -23,8 +26,7 @@ class TagsScreen extends StatelessWidget {
               itemCount: fp.tags.length,
               itemBuilder: (_, i) {
                 final tag = fp.tags[i];
-                final color = Color(int.parse(
-                    'FF${tag.color.replaceAll('#', '')}', radix: 16));
+                final color = colorFromHex(tag.color);
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
@@ -32,10 +34,21 @@ class TagsScreen extends StatelessWidget {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                          color: color.withOpacity(0.2), shape: BoxShape.circle),
+                        color: color.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
                       child: Icon(Icons.label_rounded, color: color, size: 18),
                     ),
                     title: Text(tag.name),
+                    subtitle: Text(
+                      tag.color.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: color,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -63,11 +76,17 @@ class TagsScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => TagFormSheet(tag: tag),
     );
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TAG FORM SHEET
+// ─────────────────────────────────────────────────────────────────────────────
 class TagFormSheet extends StatefulWidget {
   final Tag? tag;
   const TagFormSheet({super.key, this.tag});
@@ -80,9 +99,6 @@ class _TagFormSheetState extends State<TagFormSheet> {
   final _nameCtrl = TextEditingController();
   String _color = '#9C27B0';
 
-  final _colors = ['#F44336', '#E91E63', '#9C27B0', '#3F51B5', '#2196F3',
-      '#00BCD4', '#4CAF50', '#FF9800', '#FF5722', '#607D8B'];
-
   @override
   void initState() {
     super.initState();
@@ -90,6 +106,12 @@ class _TagFormSheetState extends State<TagFormSheet> {
       _nameCtrl.text = widget.tag!.name;
       _color = widget.tag!.color;
     }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -103,48 +125,80 @@ class _TagFormSheetState extends State<TagFormSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.tag == null ? 'Tambah Tag' : 'Edit Tag',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                widget.tag == null ? 'Tambah Tag' : 'Edit Tag',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              // Preview chip
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: colorFromHex(_color).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: colorFromHex(_color), width: 1.5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.label_rounded, color: colorFromHex(_color), size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      _nameCtrl.text.isEmpty ? 'Preview' : _nameCtrl.text,
+                      style: TextStyle(
+                        color: colorFromHex(_color),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
+
+          // Nama tag
           TextField(
             controller: _nameCtrl,
-            decoration: const InputDecoration(labelText: 'Nama Tag'),
+            onChanged: (_) => setState(() {}), // update preview
+            decoration: const InputDecoration(
+              labelText: 'Nama Tag',
+              prefixIcon: Icon(Icons.label_outlined),
+            ),
           ),
-          const SizedBox(height: 12),
-          const Text('Warna'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: _colors.map((c) {
-              final col = Color(int.parse('FF${c.replaceAll('#', '')}', radix: 16));
-              return GestureDetector(
-                onTap: () => setState(() => _color = c),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: col,
-                    shape: BoxShape.circle,
-                    border: _color == c ? Border.all(color: Colors.black, width: 2) : null,
-                  ),
-                  child: _color == c ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
-                ),
-              );
-            }).toList(),
+          const SizedBox(height: 16),
+
+          // Color picker custom
+          const Text('Warna', style: TextStyle(fontWeight: FontWeight.w500)),
+          const SizedBox(height: 10),
+          ColorPickerWidget(
+            selectedColor: _color,
+            onColorChanged: (c) => setState(() => _color = c),
           ),
           const SizedBox(height: 20),
+
+          // Tombol simpan
           SizedBox(
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
               onPressed: _save,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
+                backgroundColor: colorFromHex(_color),
+                foregroundColor: colorFromHex(_color).computeLuminance() > 0.5
+                    ? Colors.black
+                    : Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text(widget.tag == null ? 'Tambah' : 'Simpan',
-                  style: const TextStyle(fontSize: 15)),
+              child: Text(
+                widget.tag == null ? 'Tambah Tag' : 'Simpan',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ],
@@ -162,7 +216,11 @@ class _TagFormSheetState extends State<TagFormSheet> {
         color: _color,
       ));
     } else {
-      await fp.updateTag(Tag(id: widget.tag!.id, name: _nameCtrl.text, color: _color));
+      await fp.updateTag(Tag(
+        id: widget.tag!.id,
+        name: _nameCtrl.text,
+        color: _color,
+      ));
     }
     if (mounted) Navigator.pop(context);
   }
