@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models/models.dart';
 import 'package:provider/provider.dart';
-import 'package:home_widget/home_widget.dart';
+import 'package:flutter/foundation.dart';
 import 'providers/finance_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/main_screen.dart';
@@ -20,18 +20,38 @@ import 'services/currency_service.dart';
 import 'services/onboarding_service.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 
+// HomeWidget hanya import di platform yang support
+import 'package:home_widget/home_widget.dart'
+    if (dart.library.io) 'package:home_widget/home_widget.dart';
+
+bool get _isDesktopPlatform =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id', null);
   await DatabaseService.instance.initialize();
   await CurrencyService.instance.loadSavedCurrency();
   await BackupService.instance.init();
-  await NotificationService.instance.init();
-  await NotificationService.instance.rescheduleAll();
+
+  // Notifikasi tidak support di Windows/Linux/macOS desktop
+  if (!_isDesktopPlatform) {
+    await NotificationService.instance.init();
+    await NotificationService.instance.rescheduleAll();
+  }
+
   await SecurityService.instance.init();
   await AiService.instance.init();
   await OnboardingService.instance.init();
-  await WidgetService.instance.init();
+
+  // Widget service tidak support di Windows/Linux
+  if (!_isDesktopPlatform) {
+    await WidgetService.instance.init();
+  }
+
   runApp(const FinanceApp());
 }
 
@@ -80,8 +100,10 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _onAppStart());
 
-    // Listen widget click
-    HomeWidget.widgetClicked.listen(_handleWidgetClick);
+    // HomeWidget hanya di mobile
+    if (!_isDesktopPlatform) {
+      HomeWidget.widgetClicked.listen(_handleWidgetClick);
+    }
   }
 
   @override
@@ -93,7 +115,10 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      SecurityService.instance.lock();
+      // Jangan lock di desktop — hanya di mobile
+      if (!_isDesktopPlatform) {
+        SecurityService.instance.lock();
+      }
       _runBackgroundTasks();
     }
   }
@@ -105,14 +130,16 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
   }
 
   Future<void> _onAppStart() async {
-    // Cek apakah dibuka dari widget deep link
-    final initialUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
-    if (initialUri?.host == 'add_transaction') {
-      setState(() => _navigateToAddTransaction = true);
+    // Deep link dari widget hanya di mobile
+    if (!_isDesktopPlatform) {
+      final initialUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+      if (initialUri?.host == 'add_transaction') {
+        setState(() => _navigateToAddTransaction = true);
+      }
     }
 
     await _runBackgroundTasks();
-    setState(() => _initialized = true);
+    if (mounted) setState(() => _initialized = true);
   }
 
   Future<void> _runBackgroundTasks() async {
@@ -129,30 +156,36 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
       ));
     }
 
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
 
-    await context.read<FinanceProvider>().checkTodayTransactionReminder();
+    // Reminder hanya di mobile
+    if (!_isDesktopPlatform) {
+      await context.read<FinanceProvider>().checkTodayTransactionReminder();
+    }
 
-    // Update widget data
-    final fp = context.read<FinanceProvider>();
-    final now = DateTime.now();
-    final todayExpense = fp.transactions
-        .where((t) =>
-            t.type == TransactionType.expense &&
-            t.date.year == now.year &&
-            t.date.month == now.month &&
-            t.date.day == now.day)
-        .fold(0.0, (s, t) => s + t.amount);
+    // Update widget data hanya di mobile
+    if (!_isDesktopPlatform) {
+      final fp = context.read<FinanceProvider>();
+      final now = DateTime.now();
+      final todayExpense = fp.transactions
+          .where((t) =>
+              t.type == TransactionType.expense &&
+              t.date.year == now.year &&
+              t.date.month == now.month &&
+              t.date.day == now.day)
+          .fold(0.0, (s, t) => s + t.amount);
 
-    await WidgetService.instance.updateWidget(
-      totalBalance: fp.totalBalance,
-      monthlyIncome: fp.monthlyIncome(now),
-      monthlyExpense: fp.monthlyExpense(now),
-      todayExpense: todayExpense,
-    );
+      await WidgetService.instance.updateWidget(
+        totalBalance: fp.totalBalance,
+        monthlyIncome: fp.monthlyIncome(now),
+        monthlyExpense: fp.monthlyExpense(now),
+        todayExpense: todayExpense,
+      );
+    }
 
     // Cek sync Drive
+    if (!mounted) return;
     final backup = BackupService.instance;
     if (backup.isSignedIn && backup.autoSyncEnabled && mounted) {
       final remoteNewer = await backup.checkRemoteNewer();
@@ -167,8 +200,8 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        icon:
-            const Icon(Icons.sync_rounded, color: Color(0xFF6C63FF), size: 44),
+        icon: const Icon(Icons.sync_rounded,
+            color: Color(0xFF6C63FF), size: 44),
         title: const Text('Data Lebih Baru Tersedia',
             textAlign: TextAlign.center,
             style: TextStyle(fontWeight: FontWeight.bold)),
@@ -220,18 +253,20 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
       );
     }
 
-    // cek onboarding dulu
+    // Cek onboarding dulu
     if (!OnboardingService.instance.completed) {
       return const OnboardingScreen();
     }
 
-    // cek lock screen
-    if (security.lockEnabled && !security.isUnlocked) {
+    // Lock screen hanya di mobile
+    if (!_isDesktopPlatform &&
+        security.lockEnabled &&
+        !security.isUnlocked) {
       return LockScreen(onUnlocked: () => setState(() {}));
     }
 
-    // navigate dari widget
-    if (_navigateToAddTransaction) {
+    // Navigate dari widget (mobile only)
+    if (!_isDesktopPlatform && _navigateToAddTransaction) {
       _navigateToAddTransaction = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.push(

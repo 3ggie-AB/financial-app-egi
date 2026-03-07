@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import '../../services/backup_service.dart';
 import '../../providers/finance_provider.dart';
+
+bool get _isDesktop =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS);
 
 class BackupScreen extends StatelessWidget {
   const BackupScreen({super.key});
@@ -18,6 +26,9 @@ class BackupScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── Info setup untuk Windows ─────────────────────────
+          // if (_isDesktop) _buildDesktopSetupInfo(context),
+
           // ── Google Drive + Auto Sync ─────────────────────────
           _sectionHeader('Google Drive'),
           Card(
@@ -26,7 +37,14 @@ class BackupScreen extends StatelessWidget {
                 if (isLoggedIn) ...[
                   // User info
                   ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.person_rounded)),
+                    leading: CircleAvatar(
+                      child: Text(
+                        (backup.userName?.isNotEmpty == true
+                                ? backup.userName![0]
+                                : backup.userEmail?[0] ?? 'G')
+                            .toUpperCase(),
+                      ),
+                    ),
                     title: Text(backup.userName ?? 'Google Account'),
                     subtitle: Text(backup.userEmail ?? ''),
                     trailing: TextButton(
@@ -51,7 +69,8 @@ class BackupScreen extends StatelessWidget {
                         color: Colors.purple.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.sync_rounded, color: Colors.purple),
+                      child: const Icon(Icons.sync_rounded,
+                          color: Colors.purple),
                     ),
                     title: const Text('Auto Sync'),
                     subtitle: const Text(
@@ -71,7 +90,8 @@ class BackupScreen extends StatelessWidget {
                         color: Colors.green.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.backup_rounded, color: Colors.green),
+                      child: const Icon(Icons.backup_rounded,
+                          color: Colors.green),
                     ),
                     title: const Text('Backup Sekarang'),
                     subtitle: const Text('Upload data ke Google Drive'),
@@ -87,8 +107,10 @@ class BackupScreen extends StatelessWidget {
                         : () async {
                             final err = await backup.backupToDrive();
                             if (context.mounted) {
-                              _showSnack(context,
-                                  err ?? '✓ Berhasil backup ke Google Drive',
+                              _showSnack(
+                                  context,
+                                  err ??
+                                      '✓ Berhasil backup ke Google Drive',
                                   isError: err != null);
                             }
                           },
@@ -103,25 +125,40 @@ class BackupScreen extends StatelessWidget {
                         color: Colors.orange.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.restore_rounded, color: Colors.orange),
+                      child: const Icon(Icons.restore_rounded,
+                          color: Colors.orange),
                     ),
                     title: const Text('Restore dari Drive'),
-                    subtitle: const Text('Ambil data dari cloud (timpa data lokal)'),
+                    subtitle: const Text(
+                        'Ambil data dari cloud (timpa data lokal)'),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => _confirmRestore(context, backup),
                   ),
                 ] else ...[
-                  // Login
+                  // Login button
                   ListTile(
-                    leading: const Icon(Icons.login_rounded, color: Colors.blue),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.login_rounded,
+                          color: Colors.blue),
+                    ),
                     title: const Text('Login dengan Google'),
-                    subtitle: const Text(
-                        'Diperlukan untuk backup & sinkronisasi otomatis'),
+                    subtitle: Text(
+                      _isDesktop
+                          ? 'Browser akan terbuka untuk login'
+                          : 'Diperlukan untuk backup & sinkronisasi otomatis',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                     trailing: ElevatedButton(
                       onPressed: () async {
                         final ok = await backup.signInGoogle();
                         if (!ok && context.mounted) {
-                          _showSnack(context, 'Login gagal', isError: true);
+                          _showSnack(context, 'Login gagal',
+                              isError: true);
                         }
                       },
                       child: const Text('Login'),
@@ -145,16 +182,21 @@ class BackupScreen extends StatelessWidget {
                       color: Colors.blue.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.download_rounded, color: Colors.blue),
+                    child: const Icon(Icons.download_rounded,
+                        color: Colors.blue),
                   ),
                   title: const Text('Export ke JSON'),
-                  subtitle: const Text('Simpan backup ke penyimpanan lokal'),
+                  subtitle:
+                      const Text('Simpan backup ke penyimpanan lokal'),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () async {
                     final path = await backup.exportToJson();
                     if (context.mounted) {
-                      _showSnack(context,
-                          path != null ? '✓ File disimpan di: $path' : 'Gagal export',
+                      _showSnack(
+                          context,
+                          path != null
+                              ? '✓ File disimpan di: $path'
+                              : 'Gagal export',
                           isError: path == null);
                     }
                   },
@@ -167,45 +209,16 @@ class BackupScreen extends StatelessWidget {
                       color: Colors.purple.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.upload_rounded, color: Colors.purple),
+                    child: const Icon(Icons.upload_rounded,
+                        color: Colors.purple),
                   ),
                   title: const Text('Import dari JSON'),
-                  subtitle: const Text('Pilih file backup (timpa data lokal)'),
+                  subtitle: const Text(
+                      'Pilih file backup (timpa data lokal)'),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _confirmImportJson(context, backup),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Info card
-          Card(
-            color: Colors.blue.withOpacity(0.06),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.info_outline_rounded, color: Colors.blue, size: 18),
-                      SizedBox(width: 8),
-                      Text('Cara Kerja Auto Sync',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '• Data otomatis di-upload ke Drive milik kamu setiap ada perubahan\n'
-                    '• Saat buka app, akan dicek apakah ada data lebih baru di Drive\n'
-                    '• Kamu bebas pilih pakai data lokal atau data dari Drive\n'
-                    '• Quota Drive yang dipakai adalah milik kamu sendiri (~15GB gratis)\n'
-                    '• Developer tidak menyimpan data apapun di server',
-                    style: TextStyle(fontSize: 12, height: 1.8),
-                  ),
-                ],
-              ),
             ),
           ),
           const SizedBox(height: 40),
@@ -214,12 +227,125 @@ class BackupScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmRestore(BuildContext context, BackupService backup) async {
+  // ── Widget info setup Google OAuth untuk Windows ──────────────
+  Widget _buildDesktopSetupInfo(BuildContext context) {
+    return Card(
+      color: Colors.orange.withOpacity(0.08),
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.settings_rounded, color: Colors.orange, size: 18),
+                SizedBox(width: 8),
+                Text('Setup Google Login di Windows',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Untuk menggunakan Google Drive di Windows, kamu perlu '
+              'membuat OAuth2 Client ID sendiri (gratis):',
+              style: TextStyle(fontSize: 12, height: 1.5),
+            ),
+            const SizedBox(height: 8),
+            _setupStep('1', 'Buka console.cloud.google.com'),
+            _setupStep('2',
+                'Buat project baru → Library → Enable "Google Drive API"'),
+            _setupStep('3',
+                'Credentials → Create Credentials → OAuth 2.0 Client ID'),
+            _setupStep('4',
+                'Application type: Desktop App → Download JSON'),
+            _setupStep('5',
+                'Copy Client ID & Secret ke backup_service.dart'),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () {
+                Clipboard.setData(const ClipboardData(
+                    text: 'https://console.cloud.google.com/apis/credentials'));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Link disalin!'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.open_in_new_rounded,
+                        color: Colors.orange, size: 16),
+                    SizedBox(width: 6),
+                    Text(
+                      'console.cloud.google.com/apis/credentials',
+                      style: TextStyle(
+                          color: Colors.orange,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500),
+                    ),
+                    SizedBox(width: 6),
+                    Icon(Icons.copy_rounded,
+                        color: Colors.orange, size: 14),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _setupStep(String num, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(num,
+                  style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child:
+                Text(text, style: const TextStyle(fontSize: 12, height: 1.4)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmRestore(
+      BuildContext context, BackupService backup) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Restore dari Drive?'),
-        content: const Text('Semua data lokal akan digantikan dengan data dari Google Drive.'),
+        content: const Text(
+            'Semua data lokal akan digantikan dengan data dari Google Drive.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -261,7 +387,8 @@ class BackupScreen extends StatelessWidget {
     if (confirm == true && context.mounted) {
       final err = await backup.importFromJson();
       if (context.mounted) {
-        _showSnack(context, err ?? '✓ Berhasil import data', isError: err != null);
+        _showSnack(context, err ?? '✓ Berhasil import data',
+            isError: err != null);
       }
     }
   }
@@ -278,11 +405,13 @@ class BackupScreen extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(title,
             style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey)),
       );
 }
 
-// ── Tile status sync ─────────────────────────────────────────────────────────
+// ── Tile status sync ──────────────────────────────────────────────────────────
 class _SyncStatusTile extends StatelessWidget {
   final SyncState state;
   const _SyncStatusTile({required this.state});
@@ -305,13 +434,16 @@ class _SyncStatusTile extends StatelessWidget {
             ? SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: color),
               )
             : Icon(_icon(state.status), color: color),
       ),
       title: Text(_label(state.status),
-          style: TextStyle(color: color, fontWeight: FontWeight.w500)),
-      subtitle: Text(lastSyncText, style: const TextStyle(fontSize: 12)),
+          style: TextStyle(
+              color: color, fontWeight: FontWeight.w500)),
+      subtitle: Text(lastSyncText,
+          style: const TextStyle(fontSize: 12)),
     );
   }
 
