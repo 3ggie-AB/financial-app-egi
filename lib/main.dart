@@ -3,6 +3,7 @@ import 'models/models.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 import 'providers/finance_provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'providers/theme_provider.dart';
 import 'screens/main_screen.dart';
 import 'screens/security/lock_screen.dart';
@@ -32,6 +33,11 @@ bool get _isDesktopPlatform =>
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: 'assets/.env');
+  } catch (e) {
+    debugPrint('Warning: assets/.env tidak ditemukan: $e');
+  }
   await initializeDateFormatting('id', null);
   await DatabaseService.instance.initialize();
   await CurrencyService.instance.loadSavedCurrency();

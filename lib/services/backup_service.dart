@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -180,16 +181,22 @@ class BackupService extends ChangeNotifier {
 
   /// Desktop OAuth2: buka browser, user login, ambil token via redirect ke localhost
   Future<bool> _signInDesktop() async {
-    // Baca dari .env — jangan hardcode di sini!
+    // Dibaca dari assets/.env — file ini ada di .gitignore
     final clientId = dotenv.env['GOOGLE_CLIENT_ID'] ?? '';
     final clientSecret = dotenv.env['GOOGLE_CLIENT_SECRET'] ?? '';
     const redirectPort = 8085;
     const redirectUri = 'http://localhost:$redirectPort';
 
+    // Debug: tampilkan status .env di terminal
+    debugPrint('=== DEBUG GOOGLE LOGIN ===');
+    debugPrint('Semua key di .env: ${dotenv.env.keys.toList()}');
+    debugPrint('CLIENT_ID: ${clientId.isEmpty ? "⚠️ KOSONG - .env tidak terbaca!" : "✓ ${clientId.substring(0, 15)}..."}');
+    debugPrint('=========================');
+
     if (clientId.isEmpty) {
       debugPrint('⚠️ GOOGLE_CLIENT_ID tidak ditemukan di file .env');
       _setSyncState(SyncStatus.error,
-          'Client ID belum dikonfigurasi di file .env');
+          'Client ID kosong — pastikan assets/.env ada dan terdaftar di pubspec.yaml');
       notifyListeners();
       return false;
     }
@@ -211,11 +218,22 @@ class BackupService extends ChangeNotifier {
       });
 
       // 3. Buka browser
+      debugPrint('Opening browser: ${authUrl.toString()}');
       await _launchBrowser(authUrl.toString());
 
+      // Tunggu sebentar agar browser sempat terbuka
+      await Future.delayed(const Duration(milliseconds: 500));
+
       // 4. Listen di localhost untuk redirect
-      final server = await HttpServer.bind('localhost', redirectPort);
-      debugPrint('Waiting for OAuth redirect on localhost:$redirectPort...');
+      HttpServer server;
+      try {
+        server = await HttpServer.bind('localhost', redirectPort);
+      } catch (e) {
+        // Port sudah dipakai, coba port lain
+        debugPrint('Port $redirectPort busy, trying ${redirectPort + 1}');
+        server = await HttpServer.bind('localhost', redirectPort + 1);
+      }
+      debugPrint('Waiting for OAuth redirect on localhost:${server.port}...');
 
       String? code;
       await for (final request in server) {
@@ -316,15 +334,44 @@ class BackupService extends ChangeNotifier {
   Future<void> _launchBrowser(String url) async {
     try {
       if (Platform.isWindows) {
-        // Pakai rundll32 agar URL dengan & tidak terpotong
-        await Process.run('rundll32', ['url.dll,FileProtocolHandler', url]);
+        // Coba beberapa cara untuk buka browser di Windows
+        bool opened = false;
+
+        // Cara 1: pakai start melalui powershell (paling reliable)
+        try {
+          final result = await Process.run(
+            'powershell',
+            ['-Command', 'Start-Process', '"$url"'],
+            runInShell: false,
+          );
+          if (result.exitCode == 0) opened = true;
+        } catch (_) {}
+
+        // Cara 2: pakai cmd dengan escape & menjadi ^&
+        if (!opened) {
+          try {
+            final escaped = url.replaceAll('&', '^&');
+            await Process.run('cmd', ['/c', 'start', '', escaped],
+                runInShell: false);
+            opened = true;
+          } catch (_) {}
+        }
+
+        // Cara 3: rundll32 fallback
+        if (!opened) {
+          await Process.run(
+              'rundll32', ['url.dll,FileProtocolHandler', url]);
+        }
+
+        debugPrint('Browser launch attempted for: $url');
       } else if (Platform.isLinux) {
         await Process.run('xdg-open', [url]);
       } else if (Platform.isMacOS) {
         await Process.run('open', [url]);
       }
     } catch (e) {
-      debugPrint('Launch browser error: $e\nBuka manual: $url');
+      debugPrint('Launch browser error: $e');
+      debugPrint('Buka manual di browser: $url');
     }
   }
 
@@ -438,37 +485,45 @@ class BackupService extends ChangeNotifier {
     }
 
     try {
-      final driveApi = await _getDriveApi();
-      if (driveApi == null) {
-        _setSyncState(SyncStatus.error, 'Belum login ke Google');
-        return 'Belum login ke Google';
-      }
-
       final data = await DatabaseService.instance.exportAll();
       final jsonStr = jsonEncode(data);
       final bytes = utf8.encode(jsonStr);
 
-      final existingFiles = await driveApi.files.list(
-        q: "name='$_backupFileName' and trashed=false",
-        spaces: 'drive',
-      );
-
-      final fileMetadata = drive.File()
-        ..name = _backupFileName
-        ..description =
-            'FinanceKu Auto-Sync - ${DateTime.now().toIso8601String()}';
-
-      final media = drive.Media(
-        Stream.value(bytes),
-        bytes.length,
-        contentType: 'application/json',
-      );
-
-      if (existingFiles.files != null && existingFiles.files!.isNotEmpty) {
-        final fileId = existingFiles.files!.first.id!;
-        await driveApi.files.update(fileMetadata, fileId, uploadMedia: media);
+      if (_isDesktop && _desktopAccessToken != null) {
+        // ── Desktop: upload via multipart HTTP langsung ──────────
+        // Pakai googleapis multipart upload API manual agar file
+        // tersimpan sebagai JSON murni di Drive (bukan base64)
+        await _uploadViaHttp(bytes);
       } else {
-        await driveApi.files.create(fileMetadata, uploadMedia: media);
+        // ── Mobile: pakai googleapis seperti biasa ───────────────
+        final driveApi = await _getDriveApi();
+        if (driveApi == null) {
+          _setSyncState(SyncStatus.error, 'Belum login ke Google');
+          return 'Belum login ke Google';
+        }
+
+        final existingFiles = await driveApi.files.list(
+          q: "name='$_backupFileName' and trashed=false",
+          spaces: 'drive',
+        );
+
+        final fileMetadata = drive.File()
+          ..name = _backupFileName
+          ..description =
+              'FinanceKu Auto-Sync - \${DateTime.now().toIso8601String()}';
+
+        final media = drive.Media(
+          Stream.value(bytes),
+          bytes.length,
+          contentType: 'application/json',
+        );
+
+        if (existingFiles.files != null && existingFiles.files!.isNotEmpty) {
+          final fileId = existingFiles.files!.first.id!;
+          await driveApi.files.update(fileMetadata, fileId, uploadMedia: media);
+        } else {
+          await driveApi.files.create(fileMetadata, uploadMedia: media);
+        }
       }
 
       final now = DateTime.now();
@@ -504,13 +559,40 @@ class BackupService extends ChangeNotifier {
       }
 
       final fileId = files.files!.first.id!;
-      final response = await driveApi.files.get(
-        fileId,
-        downloadOptions: drive.DownloadOptions.fullMedia,
-      ) as drive.Media;
 
-      final bytes = await response.stream.expand((e) => e).toList();
-      final jsonStr = utf8.decode(bytes);
+      // Download via HTTP langsung dengan ?alt=media
+      String jsonStr;
+      if (_isDesktop && _desktopAccessToken != null) {
+        final downloadResponse = await http.get(
+          Uri.parse(
+              'https://www.googleapis.com/drive/v3/files/$fileId?alt=media'),
+          headers: {'Authorization': 'Bearer $_desktopAccessToken'},
+        );
+        if (downloadResponse.statusCode != 200) {
+          _setSyncState(SyncStatus.error,
+              'Gagal download: HTTP \${downloadResponse.statusCode}');
+          return 'Gagal download backup dari Drive';
+        }
+        jsonStr = _decodeBackupBytes(downloadResponse.bodyBytes);
+      } else {
+        // Mobile: pakai googleapis stream
+        final response = await driveApi.files.get(
+          fileId,
+          downloadOptions: drive.DownloadOptions.fullMedia,
+        ) as drive.Media;
+        final bytes = <int>[];
+        await for (final chunk in response.stream) {
+          bytes.addAll(chunk);
+        }
+        jsonStr = _decodeBackupBytes(Uint8List.fromList(bytes));
+      }
+
+      if (jsonStr.isEmpty || !jsonStr.startsWith('{')) {
+        _setSyncState(SyncStatus.error, 'Format backup tidak valid');
+        return 'Format backup tidak valid. Coba Backup Sekarang ulang.';
+      }
+
+
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
       await DatabaseService.instance.importAll(data);
@@ -588,6 +670,167 @@ class BackupService extends ChangeNotifier {
     );
     notifyListeners();
   }
+
+  // ─── UPLOAD VIA HTTP (Desktop) ────────────────────────────────
+  /// Upload JSON langsung ke Drive via multipart upload HTTP.
+  /// File yang tersimpan di Drive adalah JSON murni, bukan base64.
+  Future<void> _uploadViaHttp(List<int> jsonBytes) async {
+    final token = _desktopAccessToken!;
+
+    // 1. Cek apakah file sudah ada
+    final listResponse = await http.get(
+      Uri.parse(
+          "https://www.googleapis.com/drive/v3/files?q=name%3D'financeku_backup.json'%20and%20trashed%3Dfalse&fields=files(id)"),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    String? existingFileId;
+    if (listResponse.statusCode == 200) {
+      final listData = jsonDecode(listResponse.body);
+      final files = listData['files'] as List?;
+      if (files != null && files.isNotEmpty) {
+        existingFileId = files.first['id'] as String?;
+      }
+    }
+
+    // 2. Buat multipart body — metadata + JSON murni (bukan base64)
+    final boundary = 'fku${DateTime.now().millisecondsSinceEpoch}';
+    final metadataJson = jsonEncode({
+      'name': _backupFileName,
+      'mimeType': 'application/json',
+    });
+
+    // Build body secara manual
+    final bodyParts = <int>[];
+    void addStr(String s) => bodyParts.addAll(utf8.encode(s));
+
+    addStr('--$boundary\r\n');
+    addStr('Content-Type: application/json; charset=UTF-8\r\n\r\n');
+    addStr('$metadataJson\r\n');
+    addStr('--$boundary\r\n');
+    addStr('Content-Type: application/json\r\n\r\n');
+    bodyParts.addAll(jsonBytes);
+    addStr('\r\n--$boundary--');
+
+    final uploadBytes = Uint8List.fromList(bodyParts);
+
+    // 3. Upload atau update
+    http.Response uploadResponse;
+    if (existingFileId != null) {
+      uploadResponse = await http.patch(
+        Uri.parse(
+            'https://www.googleapis.com/upload/drive/v3/files/$existingFileId?uploadType=multipart'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'multipart/related; boundary=$boundary',
+        },
+        body: uploadBytes,
+      );
+    } else {
+      uploadResponse = await http.post(
+        Uri.parse(
+            'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'multipart/related; boundary=$boundary',
+        },
+        body: uploadBytes,
+      );
+    }
+
+    if (uploadResponse.statusCode != 200 && uploadResponse.statusCode != 201) {
+      final code = uploadResponse.statusCode;
+      final body = uploadResponse.body;
+      throw Exception('Upload gagal: HTTP $code - $body');
+    }
+
+    debugPrint('Backup uploaded OK: ${uploadResponse.statusCode}');
+  }
+
+
+  // ─── DECODE BACKUP RESPONSE ───────────────────────────────────
+  /// Handle 3 kemungkinan format response dari Google Drive:
+  /// 1. Plain JSON: {"exportedAt":...}
+  /// 2. Multipart dengan JSON body langsung
+  /// 3. Multipart dengan base64-encoded JSON body
+  String _decodeBackupBytes(Uint8List bytes) {
+    final raw = utf8.decode(bytes, allowMalformed: true).trim();
+
+    // Format 1: langsung JSON
+    if (raw.startsWith('{')) return raw;
+
+    // Format 2 & 3: multipart response
+    // Struktur: --boundary\nContent-Type: ...\n\nbody\n--boundary--
+    if (raw.startsWith('--')) {
+      final lines = raw.split('\n');
+      bool isBase64 = false;
+      bool inBody = false;
+      final bodyLines = <String>[];
+
+      for (final line in lines) {
+        final trimmed = line.trim();
+
+        // Skip boundary lines
+        if (trimmed.startsWith('--')) {
+          if (inBody && bodyLines.isNotEmpty) break; // selesai baca body
+          inBody = false;
+          isBase64 = false;
+          continue;
+        }
+
+        // Cek header
+        if (!inBody) {
+          if (trimmed.toLowerCase().contains('base64')) {
+            isBase64 = true;
+          }
+          if (trimmed.isEmpty) {
+            inBody = true; // blank line = mulai body
+          }
+          continue;
+        }
+
+        // Baca body
+        if (trimmed.isNotEmpty) {
+          bodyLines.add(trimmed);
+        }
+      }
+
+      if (bodyLines.isNotEmpty) {
+        final bodyStr = bodyLines.join('');
+
+        // Kalau body adalah JSON langsung
+        if (bodyStr.startsWith('{')) return bodyStr;
+
+        // Kalau body adalah base64 — decode dulu
+        if (isBase64) {
+          try {
+            final decoded = utf8.decode(base64Decode(bodyStr));
+            if (decoded.startsWith('{')) return decoded;
+          } catch (e) {
+            debugPrint('Base64 decode error: \$e');
+          }
+        }
+
+        // Coba decode base64 anyway kalau tidak ada JSON
+        try {
+          final decoded = utf8.decode(base64Decode(bodyStr));
+          if (decoded.startsWith('{')) return decoded;
+        } catch (_) {}
+      }
+
+      // Fallback: cari { di dalam raw
+      final jsonStart = raw.indexOf('{');
+      if (jsonStart >= 0) {
+        final candidate = raw.substring(jsonStart);
+        final jsonEnd = candidate.lastIndexOf('}');
+        if (jsonEnd > 0) return candidate.substring(0, jsonEnd + 1);
+      }
+    }
+
+    return '';
+  }
+
+
 }
 
 // ─── Mobile Google Auth Client ────────────────────────────────────────────────

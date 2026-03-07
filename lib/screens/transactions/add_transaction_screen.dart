@@ -7,6 +7,8 @@ import '../../providers/finance_provider.dart';
 import '../../services/database_service.dart';
 import '../../utils/app_theme.dart';
 import 'scan_receipt_screen.dart';
+import '../categories/categories_screen.dart';
+import '../tags/tags_screen.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final AppTransaction? transaction;
@@ -317,11 +319,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           ],
 
           // ── TAG ───────────────────────────────────────────────
-          if (fp.tags.isNotEmpty) ...[
-            _sectionLabel('Tag (opsional)'),
-            _tagSelector(fp),
-            const SizedBox(height: 12),
-          ],
+          _sectionLabel('Tag (opsional)'),
+          _tagSelector(fp),
+          const SizedBox(height: 12),
 
           // ── TANGGAL ───────────────────────────────────────────
           _sectionLabel('Tanggal'),
@@ -450,55 +450,90 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         ? fp.incomeCategories
         : fp.expenseCategories;
 
-    if (cats.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Text(
-            'Belum ada kategori ${_type == TransactionType.income ? 'pemasukan' : 'pengeluaran'}.',
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
-          ),
-        ),
-      );
-    }
-
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: cats.map<Widget>((c) {
-        final isSelected = _categoryId == c.id;
-        return ChoiceChip(
-          label: Text(c.name),
-          selected: isSelected,
-          onSelected: (v) {
-            setState(() => _categoryId = v ? c.id : null);
+      children: [
+        ...cats.map<Widget>((c) {
+          final isSelected = _categoryId == c.id;
+          return ChoiceChip(
+            label: Text(c.name),
+            selected: isSelected,
+            onSelected: (v) {
+              setState(() => _categoryId = v ? c.id : null);
+            },
+          );
+        }),
+        // Tombol tambah kategori baru langsung dari form transaksi
+        ActionChip(
+          avatar: const Icon(Icons.add_rounded, size: 16),
+          label: const Text('Baru'),
+          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+          labelStyle: const TextStyle(color: AppTheme.primaryColor),
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              builder: (_) => CategoryFormSheet(
+                initialType: _type,
+                onAdded: (newCat) {
+                  setState(() => _categoryId = newCat.id);
+                },
+              ),
+            );
           },
-        );
-      }).toList(),
+        ),
+      ],
     );
   }
 
-  /// Selector tag — multi-select
+  /// Selector tag — multi-select dengan tombol tambah inline
   Widget _tagSelector(FinanceProvider fp) {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: fp.tags.map((t) {
-        final isSelected = _tagIds.contains(t.id);
-        return FilterChip(
-          label: Text(t.name),
-          selected: isSelected,
-          onSelected: (v) {
-            setState(() {
-              if (v) {
-                if (!_tagIds.contains(t.id)) _tagIds.add(t.id);
-              } else {
-                _tagIds.remove(t.id);
-              }
-            });
+      children: [
+        ...fp.tags.map((t) {
+          final isSelected = _tagIds.contains(t.id);
+          return FilterChip(
+            label: Text(t.name),
+            selected: isSelected,
+            onSelected: (v) {
+              setState(() {
+                if (v) {
+                  if (!_tagIds.contains(t.id)) _tagIds.add(t.id);
+                } else {
+                  _tagIds.remove(t.id);
+                }
+              });
+            },
+          );
+        }),
+        // Tombol tambah tag baru langsung
+        ActionChip(
+          avatar: const Icon(Icons.add_rounded, size: 16),
+          label: const Text('Baru'),
+          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+          labelStyle: const TextStyle(color: AppTheme.primaryColor),
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              builder: (_) => TagFormSheet(
+                onAdded: (newTag) {
+                  setState(() => _tagIds.add(newTag.id));
+                },
+              ),
+            );
           },
-        );
-      }).toList(),
+        ),
+      ],
     );
   }
 
