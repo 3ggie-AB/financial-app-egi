@@ -27,6 +27,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   String? _categoryId;
   List<String> _tagIds = [];
   DateTime _date = DateTime.now();
+  RecurringPeriod _recurring = RecurringPeriod.none;
   bool _isLoading = false;
 
   bool get _isEdit => widget.transaction != null;
@@ -52,6 +53,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       _categoryId = t.categoryId;
       _tagIds = List.from(t.tagIds);
       _date = t.date;
+      _recurring = t.recurring;
     }
   }
 
@@ -80,14 +82,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
     final newT = AppTransaction(
       id: _isEdit ? widget.transaction!.id : DatabaseService.instance.newId,
-      type: _type,
-      amount: amount,
-      accountId: _accountId!,
-      toAccountId: _toAccountId,
-      categoryId: categoryId,
-      tagIds: _tagIds,
-      note: _noteCtrl.text.isEmpty ? null : _noteCtrl.text,
-      date: _date,
+      type: _type, amount: amount, accountId: _accountId!,
+      toAccountId: _toAccountId, categoryId: categoryId,
+      tagIds: _tagIds, note: _noteCtrl.text.isEmpty ? null : _noteCtrl.text,
+      date: _date, recurring: _recurring,
       createdAt: _isEdit ? widget.transaction!.createdAt : DateTime.now(),
     );
 
@@ -114,10 +112,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         content: const Text('Tindakan ini tidak bisa dibatalkan.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Hapus', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -138,7 +134,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit Transaksi' : 'Tambah Transaksi'),
         actions: [
-          // ── TOMBOL SCAN NOTA ──────────────────────────────────
           if (!_isEdit)
             Tooltip(
               message: 'Scan Nota',
@@ -147,10 +142,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                 onPressed: () async {
                   final result = await Navigator.push<bool>(
                     context,
-                    MaterialPageRoute(
-                        builder: (_) => const ScanReceiptScreen()),
+                    MaterialPageRoute(builder: (_) => const ScanReceiptScreen()),
                   );
-                  // Kalau berhasil simpan dari scan, pop juga screen ini
                   if (result == true && mounted) Navigator.pop(context);
                 },
               ),
@@ -175,11 +168,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Banner scan nota (hanya saat tambah baru)
-          if (!_isEdit) ...[
-            _scanBanner(context),
-            const SizedBox(height: 12),
-          ],
+          if (!_isEdit) ...[_scanBanner(context), const SizedBox(height: 12)],
 
           // Amount
           Card(
@@ -199,9 +188,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                           keyboardType: TextInputType.number,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: currentColor),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none, filled: false, hintText: '0',
-                          ),
+                          decoration: const InputDecoration(border: InputBorder.none, filled: false, hintText: '0'),
                         ),
                       ),
                     ],
@@ -240,15 +227,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () async {
                 final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _date,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2030),
+                  context: context, initialDate: _date,
+                  firstDate: DateTime(2020), lastDate: DateTime(2030),
                 );
                 if (picked != null) setState(() => _date = picked);
               },
             ),
           ),
+          const SizedBox(height: 12),
+
+          // ── RECURRING ─────────────────────────────────────────
+          _sectionLabel('Transaksi Berulang'),
+          _recurringSelector(),
           const SizedBox(height: 12),
 
           _sectionLabel('Catatan (opsional)'),
@@ -267,8 +257,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             child: ElevatedButton(
               onPressed: _isLoading ? null : _save,
               style: ElevatedButton.styleFrom(
-                backgroundColor: currentColor,
-                foregroundColor: Colors.white,
+                backgroundColor: currentColor, foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: _isLoading
@@ -284,13 +273,77 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     );
   }
 
-  // ── BANNER SCAN NOTA ───────────────────────────────────────────
+  Widget _recurringSelector() {
+    final options = [
+      (RecurringPeriod.none, 'Tidak', Icons.block_rounded),
+      (RecurringPeriod.daily, 'Harian', Icons.today_rounded),
+      (RecurringPeriod.weekly, 'Mingguan', Icons.view_week_rounded),
+      (RecurringPeriod.monthly, 'Bulanan', Icons.calendar_month_rounded),
+      (RecurringPeriod.yearly, 'Tahunan', Icons.calendar_today_rounded),
+    ];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8, runSpacing: 8,
+              children: options.map((opt) {
+                final isSelected = _recurring == opt.$1;
+                return ChoiceChip(
+                  avatar: Icon(opt.$3, size: 14,
+                      color: isSelected ? Colors.white : Colors.grey),
+                  label: Text(opt.$2),
+                  selected: isSelected,
+                  selectedColor: AppTheme.primaryColor,
+                  labelStyle: TextStyle(color: isSelected ? Colors.white : null, fontSize: 12),
+                  onSelected: (v) { if (v) setState(() => _recurring = opt.$1); },
+                );
+              }).toList(),
+            ),
+            if (_recurring != RecurringPeriod.none) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, color: AppTheme.primaryColor, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Akan otomatis dibuat ulang setiap ${_recurringLabel(_recurring)}',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _recurringLabel(RecurringPeriod p) => switch (p) {
+        RecurringPeriod.daily => 'hari',
+        RecurringPeriod.weekly => 'minggu',
+        RecurringPeriod.monthly => 'bulan',
+        RecurringPeriod.yearly => 'tahun',
+        RecurringPeriod.none => '',
+      };
+
   Widget _scanBanner(BuildContext context) {
     return InkWell(
       onTap: () async {
         final result = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(builder: (_) => const ScanReceiptScreen()),
+          context, MaterialPageRoute(builder: (_) => const ScanReceiptScreen()),
         );
         if (result == true && mounted) Navigator.pop(context);
       },
@@ -298,12 +351,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppTheme.primaryColor.withOpacity(0.15),
-              AppTheme.primaryColor.withOpacity(0.05),
-            ],
-          ),
+          gradient: LinearGradient(colors: [
+            AppTheme.primaryColor.withOpacity(0.15),
+            AppTheme.primaryColor.withOpacity(0.05),
+          ]),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
         ),
@@ -315,23 +366,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                 color: AppTheme.primaryColor.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.document_scanner_rounded,
-                  color: AppTheme.primaryColor, size: 22),
+              child: const Icon(Icons.document_scanner_rounded, color: AppTheme.primaryColor, size: 22),
             ),
             const SizedBox(width: 12),
             const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Punya nota belanja?',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  Text('Foto nota → otomatis jadi transaksi',
-                      style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  Text('Punya nota belanja?', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  Text('Foto nota → otomatis jadi transaksi', style: TextStyle(fontSize: 11, color: Colors.grey)),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                size: 14, color: AppTheme.primaryColor),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.primaryColor),
           ],
         ),
       ),
@@ -343,8 +390,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         child: Text(label,
             style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w500)),
+                fontSize: 12, fontWeight: FontWeight.w500)),
       );
 
   Widget _accountSelector(FinanceProvider fp, bool isTo) {
@@ -363,9 +409,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   }
 
   Widget _categorySelector(FinanceProvider fp) {
-    final cats = _type == TransactionType.income
-        ? fp.incomeCategories
-        : fp.expenseCategories;
+    final cats = _type == TransactionType.income ? fp.incomeCategories : fp.expenseCategories;
     return Wrap(
       spacing: 8, runSpacing: 8,
       children: cats.map<Widget>((c) => ChoiceChip(

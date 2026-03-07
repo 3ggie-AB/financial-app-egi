@@ -3,9 +3,12 @@ import 'package:provider/provider.dart';
 import 'providers/finance_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/main_screen.dart';
+import 'screens/security/lock_screen.dart';
 import 'services/database_service.dart';
 import 'services/backup_service.dart';
 import 'services/notification_service.dart';
+import 'services/security_service.dart';
+import 'services/recurring_service.dart';
 import 'utils/app_theme.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/currency_service.dart';
@@ -18,6 +21,7 @@ void main() async {
   await BackupService.instance.init();
   await NotificationService.instance.init();
   await NotificationService.instance.rescheduleAll();
+  await SecurityService.instance.init();
   runApp(const FinanceApp());
 }
 
@@ -30,6 +34,7 @@ class FinanceApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider.value(value: BackupService.instance),
+        ChangeNotifierProvider.value(value: SecurityService.instance),
         ChangeNotifierProvider(create: (_) => FinanceProvider()..loadAll()),
       ],
       child: Consumer<ThemeProvider>(
@@ -40,7 +45,7 @@ class FinanceApp extends StatelessWidget {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: themeProvider.themeMode,
-            home: const SyncCheckWrapper(),
+            home: const AppWrapper(),
           );
         },
       ),
@@ -48,27 +53,20 @@ class FinanceApp extends StatelessWidget {
   }
 }
 
-class SyncCheckWrapper extends StatefulWidget {
-  const SyncCheckWrapper({super.key});
-
+class AppWrapper extends StatefulWidget {
+  const AppWrapper({super.key});
   @override
-  State<SyncCheckWrapper> createState() => _SyncCheckWrapperState();
+  State<AppWrapper> createState() => _AppWrapperState();
 }
 
-class _SyncCheckWrapperState extends State<SyncCheckWrapper>
-    with WidgetsBindingObserver {
+class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _checkOnOpen();
-      await Future.delayed(const Duration(seconds: 2));
-      if (mounted) {
-        await context.read<FinanceProvider>().checkTodayTransactionReminder();
-      }
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onAppStart());
   }
 
   @override
@@ -80,19 +78,46 @@ class _SyncCheckWrapperState extends State<SyncCheckWrapper>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkOnOpen();
-      context.read<FinanceProvider>().checkTodayTransactionReminder();
+      SecurityService.instance.lock();
+      _runBackgroundTasks();
     }
   }
 
-  Future<void> _checkOnOpen() async {
+  Future<void> _onAppStart() async {
+    await _runBackgroundTasks();
+    setState(() => _initialized = true);
+  }
+
+  Future<void> _runBackgroundTasks() async {
     if (!mounted) return;
+
+    // Cek & generate recurring
+    final generated = await RecurringService.instance.checkAndGenerate();
+    if (generated.isNotEmpty && mounted) {
+      context.read<FinanceProvider>().loadAll();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${generated.length} transaksi berulang otomatis dibuat'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF6C63FF),
+      ));
+    }
+
+    // Cek reminder hari ini
+    await Future.delayed(const Duration(seconds: 1));
+    if (mounted) {
+      await context.read<FinanceProvider>().checkTodayTransactionReminder();
+    }
+
+    // Cek sync Drive
     final backup = BackupService.instance;
-    if (!backup.isSignedIn || !backup.autoSyncEnabled) return;
+    if (backup.isSignedIn && backup.autoSyncEnabled && mounted) {
+      final remoteNewer = await backup.checkRemoteNewer();
+      if (remoteNewer && mounted) await _showSyncDialog();
+    }
+  }
 
-    final remoteNewer = await backup.checkRemoteNewer();
-    if (!remoteNewer || !mounted) return;
-
+  Future<void> _showSyncDialog() async {
+    if (!mounted) return;
     final action = await showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -127,9 +152,8 @@ class _SyncCheckWrapperState extends State<SyncCheckWrapper>
         ],
       ),
     );
-
     if (action == 'drive' && mounted) {
-      final err = await backup.restoreFromDrive();
+      final err = await BackupService.instance.restoreFromDrive();
       if (mounted) {
         context.read<FinanceProvider>().loadAll();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -142,5 +166,14 @@ class _SyncCheckWrapperState extends State<SyncCheckWrapper>
   }
 
   @override
-  Widget build(BuildContext context) => const MainScreen();
+  Widget build(BuildContext context) {
+    final security = context.watch<SecurityService>();
+    if (!_initialized) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (security.lockEnabled && !security.isUnlocked) {
+      return LockScreen(onUnlocked: () => setState(() {}));
+    }
+    return const MainScreen();
+  }
 }

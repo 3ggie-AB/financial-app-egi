@@ -12,6 +12,8 @@ dependencies:
   
   # State Management
   provider: ^6.1.1
+  local_auth: ^2.3.0
+  crypto: ^3.0.3
   
   # Local Database
   sqflite: ^2.3.0
