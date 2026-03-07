@@ -5,6 +5,7 @@ import '../../providers/finance_provider.dart';
 import '../../models/models.dart';
 import '../../utils/app_theme.dart';
 import '../transactions/transaction_tile.dart';
+import '../../widgets/sync_status_widget.dart';
 
 // Import formatters
 import 'package:intl/intl.dart';
@@ -43,6 +44,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SliverAppBar(
             expandedHeight: 220,
             pinned: true,
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Center(child: SyncStatusWidget()),
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(

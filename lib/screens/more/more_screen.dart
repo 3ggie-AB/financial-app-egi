@@ -6,6 +6,7 @@ import '../categories/categories_screen.dart';
 import '../tags/tags_screen.dart';
 import '../backup/backup_screen.dart';
 import '../budgets/budgets_screen.dart';
+import '../notifications/notification_settings_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -43,6 +44,19 @@ class MoreScreen extends StatelessWidget {
             Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const BackupScreen()));
           }),
+          const SizedBox(height: 16),
+
+          _sectionHeader('Notifikasi'),
+          _menuItem(
+            context,
+            Icons.notifications_rounded,
+            'Pengaturan Notifikasi',
+            'Budget warning · Ringkasan · Pengingat harian',
+            Colors.deepPurple,
+            () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const NotificationSettingsScreen())),
+          ),
+
           const SizedBox(height: 16),
 
           _sectionHeader('Tampilan'),
