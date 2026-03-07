@@ -172,6 +172,13 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteAllData() async {
+    _isLoading = true;
+    notifyListeners();
+    await _db.deleteAllData();
+    await loadAll();
+  }
+
   Future<void> _recalcBudgets() async {
     for (int i = 0; i < _budgets.length; i++) {
       final b = _budgets[i];

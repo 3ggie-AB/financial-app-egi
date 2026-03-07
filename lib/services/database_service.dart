@@ -273,4 +273,12 @@ class DatabaseService {
       }
     });
   }
+
+  Future<void> deleteAllData() async {
+    await db.transaction((txn) async {
+      for (final table in ['transactions', 'budgets', 'accounts', 'categories', 'tags']) {
+        await txn.delete(table);
+      }
+    });
+  }
 }
