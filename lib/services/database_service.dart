@@ -15,7 +15,6 @@ class DatabaseService {
   String get newId => _uuid.v4();
 
   Future<void> initialize() async {
-    // Desktop (Windows/Linux/macOS) gunakan sqflite_common_ffi
     if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
@@ -23,7 +22,6 @@ class DatabaseService {
       databaseFactory = databaseFactoryFfi;
     }
 
-    // Web: gunakan in-memory database (data tidak persist setelah reload)
     if (kIsWeb) {
       databaseFactory = databaseFactoryFfi;
       _db = await databaseFactory.openDatabase(
@@ -78,15 +76,8 @@ class DatabaseService {
   }
 
   Future<void> _seedDefaultData() async {
-    final accounts = await getAccounts();
-    if (accounts.isNotEmpty) return;
-
-    final defaultAccounts = [
-      Account(id: newId, name: 'Dompet', type: 'cash', balance: 500000, color: '#4CAF50', icon: 'wallet', createdAt: DateTime.now()),
-      Account(id: newId, name: 'BCA', type: 'bank', balance: 5000000, color: '#2196F3', icon: 'bank', createdAt: DateTime.now()),
-      Account(id: newId, name: 'GoPay', type: 'ewallet', balance: 200000, color: '#00BCD4', icon: 'phone', createdAt: DateTime.now()),
-    ];
-    for (final a in defaultAccounts) await insertAccount(a);
+    final categories = await getCategories();
+    if (categories.isNotEmpty) return;
 
     final expenseCategories = [
       {'name': 'Makanan & Minuman', 'color': '#F44336', 'icon': 'food'},
@@ -204,6 +195,15 @@ class DatabaseService {
     await _updateAccountBalance(t, isDelete: true);
   }
 
+  /// Ekstrak jumlah coin dari metadata di field note.
+  /// Format yang disimpan: __crypto_coin_amount:0.00012345__
+  double? _extractCoinAmount(String? note) {
+    if (note == null) return null;
+    final match = RegExp(r'__crypto_coin_amount:([0-9.]+)__').firstMatch(note);
+    if (match == null) return null;
+    return double.tryParse(match.group(1)!);
+  }
+
   Future<void> _updateAccountBalance(AppTransaction t, {required bool isDelete}) async {
     final multiplier = isDelete ? -1 : 1;
     final accounts = await getAccounts();
@@ -211,15 +211,37 @@ class DatabaseService {
 
     if (t.type == TransactionType.income) {
       final acc = accountMap[t.accountId];
-      if (acc != null) await updateAccount(acc.copyWith(balance: acc.balance + (t.amount * multiplier)));
+      if (acc != null) {
+        await updateAccount(acc.copyWith(balance: acc.balance + (t.amount * multiplier)));
+      }
     } else if (t.type == TransactionType.expense) {
       final acc = accountMap[t.accountId];
-      if (acc != null) await updateAccount(acc.copyWith(balance: acc.balance - (t.amount * multiplier)));
+      if (acc != null) {
+        await updateAccount(acc.copyWith(balance: acc.balance - (t.amount * multiplier)));
+      }
     } else if (t.type == TransactionType.transfer) {
       final from = accountMap[t.accountId];
       final to = accountMap[t.toAccountId ?? ''];
-      if (from != null) await updateAccount(from.copyWith(balance: from.balance - (t.amount * multiplier)));
-      if (to != null) await updateAccount(to.copyWith(balance: to.balance + (t.amount * multiplier)));
+
+      // Rekening asal selalu berkurang sebesar IDR
+      if (from != null) {
+        await updateAccount(from.copyWith(balance: from.balance - (t.amount * multiplier)));
+      }
+
+      if (to != null) {
+        if (to.type == 'crypto') {
+          // Rekening crypto: pakai coin amount dari metadata note
+          final coinAmount = _extractCoinAmount(t.note);
+          if (coinAmount != null) {
+            await updateAccount(to.copyWith(balance: to.balance + (coinAmount * multiplier)));
+          } else {
+            debugPrint('⚠️ Transfer ke crypto tanpa metadata coin amount — saldo tidak diubah');
+          }
+        } else {
+          // Rekening biasa: tambah IDR normal
+          await updateAccount(to.copyWith(balance: to.balance + (t.amount * multiplier)));
+        }
+      }
     }
   }
 
