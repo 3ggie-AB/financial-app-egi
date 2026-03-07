@@ -9,6 +9,7 @@ import 'services/backup_service.dart';
 import 'services/notification_service.dart';
 import 'services/security_service.dart';
 import 'services/recurring_service.dart';
+import 'services/ai_service.dart';
 import 'utils/app_theme.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/currency_service.dart';
@@ -22,6 +23,7 @@ void main() async {
   await NotificationService.instance.init();
   await NotificationService.instance.rescheduleAll();
   await SecurityService.instance.init();
+  await AiService.instance.init();
   runApp(const FinanceApp());
 }
 
@@ -35,6 +37,7 @@ class FinanceApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider.value(value: BackupService.instance),
         ChangeNotifierProvider.value(value: SecurityService.instance),
+        ChangeNotifierProvider.value(value: AiService.instance),
         ChangeNotifierProvider(create: (_) => FinanceProvider()..loadAll()),
       ],
       child: Consumer<ThemeProvider>(
@@ -102,13 +105,11 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
       ));
     }
 
-    // Cek reminder hari ini
     await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
       await context.read<FinanceProvider>().checkTodayTransactionReminder();
     }
 
-    // Cek sync Drive
     final backup = BackupService.instance;
     if (backup.isSignedIn && backup.autoSyncEnabled && mounted) {
       final remoteNewer = await backup.checkRemoteNewer();

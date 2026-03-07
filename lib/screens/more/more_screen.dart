@@ -3,12 +3,15 @@ import 'package:provider/provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/finance_provider.dart';
 import '../../services/security_service.dart';
+import '../../services/ai_service.dart';
 import '../categories/categories_screen.dart';
 import '../tags/tags_screen.dart';
 import '../backup/backup_screen.dart';
 import '../budgets/budgets_screen.dart';
 import '../notifications/notification_settings_screen.dart';
 import '../security/security_settings_screen.dart';
+import '../ai/ai_analysis_screen.dart';
+import '../../utils/app_theme.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -17,6 +20,7 @@ class MoreScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final security = context.watch<SecurityService>();
+    final ai = context.watch<AiService>();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Lainnya')),
@@ -36,6 +40,58 @@ class MoreScreen extends StatelessWidget {
               'Atur batas pengeluaran', Colors.orange, () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const BudgetsScreen()));
           }),
+          const SizedBox(height: 16),
+
+          // ── AI Keuangan ──────────────────────────────────────
+          _sectionHeader('🤖 AI'),
+          Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [
+                    AppTheme.primaryColor.withOpacity(0.2),
+                    AppTheme.primaryColor.withOpacity(0.05),
+                  ]),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.auto_awesome_rounded,
+                    color: AppTheme.primaryColor),
+              ),
+              title: const Text('AI Keuangan',
+                  style: TextStyle(fontWeight: FontWeight.w500)),
+              subtitle: Text(
+                ai.hasApiKey
+                    ? 'Aktif · ${ai.model.split('-').take(2).join('-')}'
+                    : 'Analisis & saran keuangan personal · Gratis',
+                style: const TextStyle(fontSize: 12),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (ai.hasApiKey)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text('ON',
+                          style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
+              ),
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const AiAnalysisScreen())),
+            ),
+          ),
           const SizedBox(height: 16),
 
           _sectionHeader('Data & Backup'),
@@ -60,11 +116,14 @@ class MoreScreen extends StatelessWidget {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: (security.lockEnabled ? Colors.green : Colors.grey).withOpacity(0.1),
+                  color: (security.lockEnabled ? Colors.green : Colors.grey)
+                      .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  security.lockEnabled ? Icons.lock_rounded : Icons.lock_open_rounded,
+                  security.lockEnabled
+                      ? Icons.lock_rounded
+                      : Icons.lock_open_rounded,
                   color: security.lockEnabled ? Colors.green : Colors.grey,
                 ),
               ),
@@ -72,7 +131,7 @@ class MoreScreen extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w500)),
               subtitle: Text(
                 security.lockEnabled
-                    ? 'Aktif · ${security.bioEnabled ? "Fingerprint ON" : "Fingerprint OFF"}'
+                    ? 'Aktif · ${security.bioEnabled ? "Fingerprint ON" : "PIN only"}'
                     : 'Tidak aktif · Ketuk untuk mengaktifkan',
                 style: const TextStyle(fontSize: 12),
               ),
@@ -81,7 +140,8 @@ class MoreScreen extends StatelessWidget {
                 children: [
                   if (security.lockEnabled)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: Colors.green.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -270,7 +330,8 @@ class MoreScreen extends StatelessWidget {
   Widget _sectionHeader(String title) => Padding(
         padding: const EdgeInsets.only(left: 4, bottom: 8),
         child: Text(title,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+            style: const TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
       );
 
   Widget _menuItem(BuildContext context, IconData icon, String title,
