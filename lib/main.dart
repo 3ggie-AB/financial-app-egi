@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
+import 'models/models.dart';
 import 'package:provider/provider.dart';
+import 'package:home_widget/home_widget.dart';
 import 'providers/finance_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/main_screen.dart';
 import 'screens/security/lock_screen.dart';
+import 'screens/transactions/add_transaction_screen.dart';
 import 'services/database_service.dart';
 import 'services/backup_service.dart';
 import 'services/notification_service.dart';
 import 'services/security_service.dart';
 import 'services/recurring_service.dart';
+import 'services/widget_service.dart';
 import 'services/ai_service.dart';
 import 'utils/app_theme.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/currency_service.dart';
+import 'services/onboarding_service.dart';
+import 'screens/onboarding/onboarding_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +30,8 @@ void main() async {
   await NotificationService.instance.rescheduleAll();
   await SecurityService.instance.init();
   await AiService.instance.init();
+  await OnboardingService.instance.init();
+  await WidgetService.instance.init();
   runApp(const FinanceApp());
 }
 
@@ -64,12 +72,16 @@ class AppWrapper extends StatefulWidget {
 
 class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
   bool _initialized = false;
+  bool _navigateToAddTransaction = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _onAppStart());
+
+    // Listen widget click
+    HomeWidget.widgetClicked.listen(_handleWidgetClick);
   }
 
   @override
@@ -86,7 +98,19 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
     }
   }
 
+  void _handleWidgetClick(Uri? uri) {
+    if (uri?.host == 'add_transaction') {
+      setState(() => _navigateToAddTransaction = true);
+    }
+  }
+
   Future<void> _onAppStart() async {
+    // Cek apakah dibuka dari widget deep link
+    final initialUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+    if (initialUri?.host == 'add_transaction') {
+      setState(() => _navigateToAddTransaction = true);
+    }
+
     await _runBackgroundTasks();
     setState(() => _initialized = true);
   }
@@ -94,7 +118,7 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
   Future<void> _runBackgroundTasks() async {
     if (!mounted) return;
 
-    // Cek & generate recurring
+    // Generate recurring transactions
     final generated = await RecurringService.instance.checkAndGenerate();
     if (generated.isNotEmpty && mounted) {
       context.read<FinanceProvider>().loadAll();
@@ -106,10 +130,29 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
     }
 
     await Future.delayed(const Duration(seconds: 1));
-    if (mounted) {
-      await context.read<FinanceProvider>().checkTodayTransactionReminder();
-    }
+    if (!mounted) return;
 
+    await context.read<FinanceProvider>().checkTodayTransactionReminder();
+
+    // Update widget data
+    final fp = context.read<FinanceProvider>();
+    final now = DateTime.now();
+    final todayExpense = fp.transactions
+        .where((t) =>
+            t.type == TransactionType.expense &&
+            t.date.year == now.year &&
+            t.date.month == now.month &&
+            t.date.day == now.day)
+        .fold(0.0, (s, t) => s + t.amount);
+
+    await WidgetService.instance.updateWidget(
+      totalBalance: fp.totalBalance,
+      monthlyIncome: fp.monthlyIncome(now),
+      monthlyExpense: fp.monthlyExpense(now),
+      todayExpense: todayExpense,
+    );
+
+    // Cek sync Drive
     final backup = BackupService.instance;
     if (backup.isSignedIn && backup.autoSyncEnabled && mounted) {
       final remoteNewer = await backup.checkRemoteNewer();
@@ -124,7 +167,8 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        icon: const Icon(Icons.sync_rounded, color: Color(0xFF6C63FF), size: 44),
+        icon:
+            const Icon(Icons.sync_rounded, color: Color(0xFF6C63FF), size: 44),
         title: const Text('Data Lebih Baru Tersedia',
             textAlign: TextAlign.center,
             style: TextStyle(fontWeight: FontWeight.bold)),
@@ -169,12 +213,34 @@ class _AppWrapperState extends State<AppWrapper> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final security = context.watch<SecurityService>();
+
     if (!_initialized) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
+
+    // cek onboarding dulu
+    if (!OnboardingService.instance.completed) {
+      return const OnboardingScreen();
+    }
+
+    // cek lock screen
     if (security.lockEnabled && !security.isUnlocked) {
       return LockScreen(onUnlocked: () => setState(() {}));
     }
+
+    // navigate dari widget
+    if (_navigateToAddTransaction) {
+      _navigateToAddTransaction = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
+        );
+      });
+    }
+
     return const MainScreen();
   }
 }

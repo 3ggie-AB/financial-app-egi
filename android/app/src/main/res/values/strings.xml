@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- android/app/src/main/res/values/strings.xml -->
+<resources>
+    <string name="app_name">FinanceKu</string>
+    <string name="widget_small_description">Widget kecil menampilkan saldo dan pengeluaran hari ini</string>
+    <string name="widget_medium_description">Widget lengkap menampilkan saldo, pemasukan, dan pengeluaran</string>
+</resources>

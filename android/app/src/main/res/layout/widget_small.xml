@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- android/app/src/main/res/layout/widget_small.xml -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="12dp"
+    android:gravity="center">
+
+    <!-- Header -->
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="FinanceKu"
+        android:textColor="#80FFFFFF"
+        android:textSize="10sp"
+        android:letterSpacing="0.05" />
+
+    <TextView
+        android:id="@+id/widget_label_balance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Total Saldo"
+        android:textColor="#80FFFFFF"
+        android:textSize="9sp"
+        android:layout_marginTop="8dp" />
+
+    <!-- Total Saldo -->
+    <TextView
+        android:id="@+id/widget_balance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Rp 0"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginTop="2dp" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="1dp"
+        android:background="#40FFFFFF"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Today expense -->
+    <TextView
+        android:id="@+id/widget_today_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Hari ini"
+        android:textColor="#80FFFFFF"
+        android:textSize="9sp" />
+
+    <TextView
+        android:id="@+id/widget_today_expense"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Rp 0"
+        android:textColor="#FF6B6B"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:layout_marginTop="2dp" />
+
+    <!-- Quick add button -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@drawable/widget_button_bg"
+        android:padding="6dp"
+        android:layout_marginTop="8dp"
+        android:gravity="center">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" Catat"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:layout_marginStart="2dp" />
+    </LinearLayout>
+
+</LinearLayout>

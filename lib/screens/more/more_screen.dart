@@ -4,6 +4,7 @@ import '../../providers/theme_provider.dart';
 import '../../providers/finance_provider.dart';
 import '../../services/security_service.dart';
 import '../../services/ai_service.dart';
+import '../../services/onboarding_service.dart';
 import '../categories/categories_screen.dart';
 import '../tags/tags_screen.dart';
 import '../backup/backup_screen.dart';
@@ -11,6 +12,7 @@ import '../budgets/budgets_screen.dart';
 import '../notifications/notification_settings_screen.dart';
 import '../security/security_settings_screen.dart';
 import '../ai/ai_analysis_screen.dart';
+import '../onboarding/onboarding_screen.dart';
 import '../../utils/app_theme.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -21,28 +23,77 @@ class MoreScreen extends StatelessWidget {
     final themeProvider = context.watch<ThemeProvider>();
     final security = context.watch<SecurityService>();
     final ai = context.watch<AiService>();
+    final userName = OnboardingService.instance.userName;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Lainnya')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── User greeting card ────────────────────────────────
+          if (userName.isNotEmpty)
+            Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [
+                          AppTheme.primaryColor,
+                          AppTheme.primaryColor.withValues(alpha: 0.6),
+                        ]),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          userName[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Halo, $userName! 👋',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 15)),
+                        const Text('Semangat kelola keuanganmu!',
+                            style:
+                                TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           _sectionHeader('Kelola'),
           _menuItem(context, Icons.category_rounded, 'Kategori',
               'Kelola kategori transaksi', Colors.blue, () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoriesScreen()));
+            Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const CategoriesScreen()));
           }),
           _menuItem(context, Icons.label_rounded, 'Tag',
               'Kelola tag transaksi', Colors.purple, () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const TagsScreen()));
+            Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const TagsScreen()));
           }),
           _menuItem(context, Icons.account_balance_wallet_rounded, 'Budget',
               'Atur batas pengeluaran', Colors.orange, () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const BudgetsScreen()));
+            Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const BudgetsScreen()));
           }),
           const SizedBox(height: 16),
 
-          // ── AI Keuangan ──────────────────────────────────────
           _sectionHeader('🤖 AI'),
           Card(
             margin: const EdgeInsets.only(bottom: 8),
@@ -51,8 +102,8 @@ class MoreScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(colors: [
-                    AppTheme.primaryColor.withOpacity(0.2),
-                    AppTheme.primaryColor.withOpacity(0.05),
+                    AppTheme.primaryColor.withValues(alpha: 0.2),
+                    AppTheme.primaryColor.withValues(alpha: 0.05),
                   ]),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -75,7 +126,7 @@ class MoreScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text('ON',
@@ -97,15 +148,22 @@ class MoreScreen extends StatelessWidget {
           _sectionHeader('Data & Backup'),
           _menuItem(context, Icons.backup_rounded, 'Backup & Sinkronisasi',
               'Google Drive · Auto Sync', Colors.green, () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupScreen()));
+            Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const BackupScreen()));
           }),
           const SizedBox(height: 16),
 
           _sectionHeader('Notifikasi'),
-          _menuItem(context, Icons.notifications_rounded, 'Pengaturan Notifikasi',
-              'Budget warning · Ringkasan · Pengingat harian', Colors.deepPurple, () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()));
+          _menuItem(
+              context,
+              Icons.notifications_rounded,
+              'Pengaturan Notifikasi',
+              'Budget warning · Ringkasan · Pengingat harian',
+              Colors.deepPurple, () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const NotificationSettingsScreen()));
           }),
           const SizedBox(height: 16),
 
@@ -117,7 +175,7 @@ class MoreScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: (security.lockEnabled ? Colors.green : Colors.grey)
-                      .withOpacity(0.1),
+                      .withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -132,7 +190,7 @@ class MoreScreen extends StatelessWidget {
               subtitle: Text(
                 security.lockEnabled
                     ? 'Aktif · ${security.bioEnabled ? "Fingerprint ON" : "PIN only"}'
-                    : 'Tidak aktif · Ketuk untuk mengaktifkan',
+                    : 'Tidak aktif',
                 style: const TextStyle(fontSize: 12),
               ),
               trailing: Row(
@@ -143,7 +201,7 @@ class MoreScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text('ON',
@@ -156,8 +214,10 @@ class MoreScreen extends StatelessWidget {
                   const Icon(Icons.chevron_right_rounded),
                 ],
               ),
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const SecuritySettingsScreen())),
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SecuritySettingsScreen())),
             ),
           ),
           const SizedBox(height: 16),
@@ -168,10 +228,11 @@ class MoreScreen extends StatelessWidget {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.indigo.withOpacity(0.1),
+                  color: Colors.indigo.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.dark_mode_rounded, color: Colors.indigo),
+                child:
+                    const Icon(Icons.dark_mode_rounded, color: Colors.indigo),
               ),
               title: const Text('Tema Gelap'),
               trailing: Switch(
@@ -183,27 +244,46 @@ class MoreScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
+          _sectionHeader('Lainnya'),
+          _menuItem(
+            context,
+            Icons.play_circle_outline_rounded,
+            'Ulangi Tutorial',
+            'Lihat panduan fitur FinanceKu lagi',
+            Colors.teal,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const OnboardingScreen(isReplay: true)),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           _sectionHeader('Zona Bahaya'),
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: Colors.red.withOpacity(0.4), width: 1.2),
+              side:
+                  BorderSide(color: Colors.red.withValues(alpha: 0.4), width: 1.2),
             ),
             child: ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.delete_forever_rounded, color: Colors.red),
+                child: const Icon(Icons.delete_forever_rounded,
+                    color: Colors.red),
               ),
               title: const Text('Hapus Semua Data',
-                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+                  style:
+                      TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
               subtitle: const Text(
                   'Hapus seluruh transaksi, rekening, kategori & tag',
                   style: TextStyle(fontSize: 12)),
-              trailing: const Icon(Icons.chevron_right_rounded, color: Colors.red),
+              trailing: const Icon(Icons.chevron_right_rounded,
+                  color: Colors.red),
               onTap: () => _showDeleteWarning1(context),
             ),
           ),
@@ -218,8 +298,10 @@ class MoreScreen extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 48),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(Icons.warning_amber_rounded,
+            color: Colors.orange, size: 48),
         title: const Text('Hapus Semua Data?',
             textAlign: TextAlign.center,
             style: TextStyle(fontWeight: FontWeight.bold)),
@@ -233,14 +315,20 @@ class MoreScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
+            child: const Text('Batal',
+                style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange, foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: () { Navigator.pop(ctx); _showDeleteWarning2(context); },
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showDeleteWarning2(context);
+            },
             child: const Text('Lanjutkan'),
           ),
         ],
@@ -256,27 +344,35 @@ class MoreScreen extends StatelessWidget {
         bool isDeleting = false;
         return StatefulBuilder(
           builder: (ctx, setState) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            icon: const Icon(Icons.delete_forever_rounded, color: Colors.red, size: 52),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
+            icon: const Icon(Icons.delete_forever_rounded,
+                color: Colors.red, size: 52),
             title: const Text('Yakin Ingin Menghapus?',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.red)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.08),
+                    color: Colors.red.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    border:
+                        Border.all(color: Colors.red.withValues(alpha: 0.3)),
                   ),
                   child: const Row(children: [
                     Icon(Icons.error_outline, color: Colors.red, size: 20),
                     SizedBox(width: 10),
-                    Expanded(child: Text(
+                    Expanded(
+                        child: Text(
                       'Ini adalah konfirmasi terakhir.\nSemua data akan PERMANEN terhapus!',
-                      style: TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500),
                     )),
                   ]),
                 ),
@@ -292,33 +388,45 @@ class MoreScreen extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: isDeleting ? null : () => Navigator.pop(ctx),
-                child: const Text('Tidak, Batalkan', style: TextStyle(fontWeight: FontWeight.w600)),
+                child: const Text('Tidak, Batalkan',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red, foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
-                onPressed: isDeleting ? null : () async {
-                  setState(() => isDeleting = true);
-                  await context.read<FinanceProvider>().deleteAllData();
-                  if (ctx.mounted) {
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Row(children: [
-                        Icon(Icons.check_circle_outline, color: Colors.white),
-                        SizedBox(width: 10),
-                        Text('Semua data berhasil dihapus'),
-                      ]),
-                      backgroundColor: Colors.green,
-                      behavior: SnackBarBehavior.floating,
-                    ));
-                  }
-                },
+                onPressed: isDeleting
+                    ? null
+                    : () async {
+                        setState(() => isDeleting = true);
+                        await context.read<FinanceProvider>().deleteAllData();
+                        if (ctx.mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Row(children: [
+                                Icon(Icons.check_circle_outline,
+                                    color: Colors.white),
+                                SizedBox(width: 10),
+                                Text('Semua data berhasil dihapus'),
+                              ]),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      },
                 child: isDeleting
-                    ? const SizedBox(width: 18, height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Ya, Hapus Semua', style: TextStyle(fontWeight: FontWeight.w600)),
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Text('Ya, Hapus Semua',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -331,7 +439,9 @@ class MoreScreen extends StatelessWidget {
         padding: const EdgeInsets.only(left: 4, bottom: 8),
         child: Text(title,
             style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey)),
       );
 
   Widget _menuItem(BuildContext context, IconData icon, String title,
@@ -342,12 +452,13 @@ class MoreScreen extends StatelessWidget {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: color),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+        title:
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
         subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: onTap,
