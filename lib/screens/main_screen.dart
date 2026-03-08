@@ -1,3 +1,4 @@
+// screens/main_screen.dart
 import 'package:flutter/material.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'transactions/transactions_screen.dart';
@@ -13,8 +14,11 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen>
+    with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
+  late AnimationController _fabCtrl;
+  late Animation<double> _fabAnim;
 
   final _screens = const [
     DashboardScreen(),
@@ -23,12 +27,22 @@ class _MainScreenState extends State<MainScreen> {
     MoreScreen(),
   ];
 
-  final _navItems = const [
-    _NavItem(icon: Icons.dashboard_rounded, label: 'Dashboard'),
-    _NavItem(icon: Icons.receipt_long_rounded, label: 'Transaksi'),
-    _NavItem(icon: Icons.account_balance_wallet_rounded, label: 'Rekening'),
-    _NavItem(icon: Icons.more_horiz_rounded, label: 'Lainnya'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fabCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _fabAnim = CurvedAnimation(parent: _fabCtrl, curve: Curves.easeOut);
+    _fabCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _fabCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,83 +50,86 @@ class _MainScreenState extends State<MainScreen> {
     return isDesktop ? _buildDesktop() : _buildMobile();
   }
 
-  // ─── DESKTOP LAYOUT ──────────────────────────────────────────
+  // ─── DESKTOP ──────────────────────────────────────────────────
   Widget _buildDesktop() {
-    final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: Row(
         children: [
-          // ── Sidebar ──
+          // Sidebar
           Container(
-            width: 220,
+            width: 230,
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF13131F) : const Color(0xFF1A1A2E),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 20,
+              color: isDark ? AppTheme.darkSurface : const Color(0xFF1A1040),
+              border: Border(
+                right: BorderSide(
+                  color: isDark ? AppTheme.darkBorder : const Color(0xFF2A1A58),
+                  width: 1,
                 ),
-              ],
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Logo area
-                Container(
-                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                  child: Row(
+                // Logo
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 42, height: 42,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.primaryColor,
-                              AppTheme.primaryColor.withOpacity(0.6)
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
+                          gradient: AppTheme.primaryGradient,
+                          borderRadius: BorderRadius.circular(13),
+                          boxShadow: AppTheme.primaryShadow,
                         ),
-                        child: const Icon(Icons.account_balance_wallet_rounded,
-                            color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.account_balance_wallet_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(height: 10),
                       const Text(
                         'FinanceKu',
                         style: TextStyle(
+                          fontFamily: 'Poppins',
                           color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        'Smart Finance Manager',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          color: Colors.white.withOpacity(0.4),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                // Divider
-                Divider(color: Colors.white.withOpacity(0.08), height: 1),
-                const SizedBox(height: 16),
+                Divider(
+                  color: Colors.white.withOpacity(0.07),
+                  height: 36,
+                ),
 
-                // Nav items
+                // Nav
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Column(
-                    children: List.generate(_navItems.length, (i) {
-                      final item = _navItems[i];
-                      final selected = _currentIndex == i;
-                      return _SidebarItem(
-                        icon: item.icon,
-                        label: item.label,
-                        selected: selected,
-                        onTap: () => setState(() => _currentIndex = i),
-                      );
-                    }),
+                    children: [
+                      _SideNavItem(icon: Icons.dashboard_rounded, label: 'Dashboard', selected: _currentIndex == 0, onTap: () => setState(() => _currentIndex = 0)),
+                      _SideNavItem(icon: Icons.receipt_long_rounded, label: 'Transaksi', selected: _currentIndex == 1, onTap: () => setState(() => _currentIndex = 1)),
+                      _SideNavItem(icon: Icons.account_balance_wallet_rounded, label: 'Rekening', selected: _currentIndex == 2, onTap: () => setState(() => _currentIndex = 2)),
+                      _SideNavItem(icon: Icons.more_horiz_rounded, label: 'Lainnya', selected: _currentIndex == 3, onTap: () => setState(() => _currentIndex = 3)),
+                    ],
                   ),
                 ),
 
@@ -126,8 +143,7 @@ class _MainScreenState extends State<MainScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                            builder: (_) => const AddTransactionScreen()),
+                        MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
                       ),
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Tambah Transaksi'),
@@ -136,19 +152,19 @@ class _MainScreenState extends State<MainScreen> {
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         elevation: 0,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
               ],
             ),
           ),
 
-          // ── Main content ──
+          // Main content
           Expanded(
             child: Container(
               color: scheme.background,
@@ -163,106 +179,64 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // ─── MOBILE LAYOUT ───────────────────────────────────────────
+  // ─── MOBILE ───────────────────────────────────────────────────
   Widget _buildMobile() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
+      backgroundColor: scheme.background,
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'main_fab',
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
-        ),
-        elevation: 2,
-        highlightElevation: 4,
-        backgroundColor: scheme.primary,
-        foregroundColor: Colors.white,
-        shape: const CircleBorder(),
-        child: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                scheme.primary,
-                scheme.primary.withOpacity(0.75),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+      floatingActionButton: ScaleTransition(
+        scale: _fabAnim,
+        child: GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (_, anim, __) => const AddTransactionScreen(),
+              transitionDuration: const Duration(milliseconds: 350),
+              transitionsBuilder: (_, anim, __, child) => SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 1),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+                child: child,
+              ),
             ),
           ),
-          child: const Icon(Icons.add_rounded, size: 28),
+          child: Container(
+            width: 58, height: 58,
+            decoration: BoxDecoration(
+              gradient: AppTheme.primaryGradient,
+              shape: BoxShape.circle,
+              boxShadow: AppTheme.primaryShadow,
+            ),
+            child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 6, // ← dari 8 jadi 6
-        height: 72, // ← dari 64 jadi 72
-        padding: EdgeInsets.zero,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _mobileNavItem(0, Icons.dashboard_rounded, 'Dashboard'),
-            _mobileNavItem(1, Icons.receipt_long_rounded, 'Transaksi'),
-            const SizedBox(width: 50),
-            _mobileNavItem(2, Icons.account_balance_wallet_rounded, 'Rekening'),
-            _mobileNavItem(3, Icons.more_horiz_rounded, 'Lainnya'),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _mobileNavItem(int index, IconData icon, String label) {
-    final selected = _currentIndex == index;
-    final scheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _currentIndex = index),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon,
-                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                  size: 24),
-              const SizedBox(height: 2),
-              Text(label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                  )),
-            ],
-          ),
-        ),
+      bottomNavigationBar: _BottomNavBar(
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
+        isDark: isDark,
       ),
     );
   }
 }
 
-class _NavItem {
-  final IconData icon;
-  final String label;
-  const _NavItem({required this.icon, required this.label});
-}
-
-class _SidebarItem extends StatelessWidget {
+// ─── SIDE NAV ITEM ────────────────────────────────────────────────────────────
+class _SideNavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
-  const _SidebarItem({
+  const _SideNavItem({
     required this.icon,
     required this.label,
     required this.selected,
@@ -271,54 +245,168 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.only(bottom: 4),
-      decoration: BoxDecoration(
-        color: selected
-            ? AppTheme.primaryColor.withOpacity(0.2)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: selected
+              ? LinearGradient(
+                  colors: [
+                    AppTheme.primaryColor.withOpacity(0.3),
+                    AppTheme.primaryColor.withOpacity(0.15),
+                  ],
+                )
+              : null,
+          color: selected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: selected
+              ? Border.all(
+                  color: AppTheme.primaryColor.withOpacity(0.3),
+                  width: 1,
+                )
+              : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: selected
+                  ? AppTheme.primaryLight
+                  : Colors.white.withOpacity(0.4),
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                color: selected ? Colors.white : Colors.white.withOpacity(0.4),
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+            if (selected) ...[
+              const Spacer(),
+              Container(
+                width: 5, height: 5,
+                decoration: const BoxDecoration(
+                  color: AppTheme.primaryLight,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
+    );
+  }
+}
+
+// ─── BOTTOM NAV BAR ───────────────────────────────────────────────────────────
+class _BottomNavBar extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final bool isDark;
+
+  const _BottomNavBar({
+    required this.currentIndex,
+    required this.onTap,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppTheme.darkBorder.withOpacity(0.5) : AppTheme.lightBorder,
+            width: 1,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _navItem(context, 0, Icons.dashboard_rounded, 'Dashboard'),
+          _navItem(context, 1, Icons.receipt_long_rounded, 'Transaksi'),
+          const SizedBox(width: 60), // FAB space
+          _navItem(context, 2, Icons.account_balance_wallet_rounded, 'Rekening'),
+          _navItem(context, 3, Icons.more_horiz_rounded, 'Lainnya'),
+        ],
+      ),
+    );
+  }
+
+  Widget _navItem(BuildContext context, int index, IconData icon, String label) {
+    final isSelected = currentIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onTap(index),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: isSelected ? 40 : 0,
+                height: isSelected ? 36 : 0,
+                decoration: isSelected
+                    ? BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      )
+                    : null,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 150),
+                  child: isSelected
+                      ? Icon(
+                          icon,
+                          key: ValueKey('sel_$index'),
+                          color: AppTheme.primaryColor,
+                          size: 22,
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+              if (!isSelected) ...[
                 Icon(
                   icon,
-                  color: selected
-                      ? AppTheme.primaryColor
-                      : Colors.white.withOpacity(0.5),
-                  size: 20,
+                  color: isDark ? const Color(0xFF5A5A7A) : const Color(0xFFD1D5DB),
+                  size: 22,
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color:
-                        selected ? Colors.white : Colors.white.withOpacity(0.5),
-                    fontSize: 14,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-                if (selected) ...[
-                  const Spacer(),
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
               ],
-            ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : isDark
+                          ? const Color(0xFF5A5A7A)
+                          : const Color(0xFFD1D5DB),
+                ),
+              ),
+            ],
           ),
         ),
       ),
