@@ -20,6 +20,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'services/currency_service.dart';
 import 'services/onboarding_service.dart';
 import 'screens/onboarding/onboarding_screen.dart';
+import 'providers/goal_debt_provider.dart';
 
 // HomeWidget hanya import di platform yang support
 import 'package:home_widget/home_widget.dart'
@@ -73,6 +74,7 @@ class FinanceApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: SecurityService.instance),
         ChangeNotifierProvider.value(value: AiService.instance),
         ChangeNotifierProvider(create: (_) => FinanceProvider()..loadAll()),
+        ChangeNotifierProvider(create: (_) => GoalDebtProvider()..loadAll()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {

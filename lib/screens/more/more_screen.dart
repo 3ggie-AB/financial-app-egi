@@ -15,6 +15,8 @@ import '../security/security_settings_screen.dart';
 import '../ai/ai_analysis_screen.dart';
 import '../onboarding/onboarding_screen.dart';
 import '../../utils/app_theme.dart';
+import '../goals/goals_screen.dart';
+import '../debt/debt_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -69,6 +71,22 @@ class MoreScreen extends StatelessWidget {
               color: AppTheme.goldColor,
               onTap: () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const BudgetsScreen())),
+            ),
+            _MenuItemData(
+              icon: Icons.flag_rounded,
+              label: 'Target Keuangan',
+              subtitle: 'Tabungan & goals impianmu',
+              color: AppTheme.primaryColor,
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const GoalsScreen())),
+            ),
+            _MenuItemData(
+              icon: Icons.handshake_rounded,
+              label: 'Hutang & Piutang',
+              subtitle: 'Kelola cicilan & pinjaman',
+              color: AppTheme.expenseColor,
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const DebtScreen())),
             ),
           ]),
           const SizedBox(height: 24),
